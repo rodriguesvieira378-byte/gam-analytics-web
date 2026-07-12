@@ -1,0 +1,17 @@
+{
+  "name": "GAM Analytics Web",
+  "short_name": "GAM Analytics",
+  "description": "Sistema de gestão operacional da unidade G.A.M — OÁSIS RP",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "year": 2026,
+  "month": 6,
+  "week": 1,
+  "officers": [
+    {
+      "registration": "GAM001",
+      "name": "Mike",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM002",
+      "name": "K1ra",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM003",
+      "name": "Dadinho",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM004",
+      "name": "Md",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM005",
+      "name": "Vg",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM006",
+      "name": "Matheus",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM007",
+      "name": "Baiano",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM008",
+      "name": "Flavio",
+      "role": "Estagiário",
+      "status": "Ativo",
+      "prisonGoal": 6,
+      "pursuitGoal": 12
+    },
+    {
+      "registration": "GAM009",
+      "name": "Dv",
+      "role": "Oficial GAM",
+      "status": "Ativo",
+      "prisonGoal": 4,
+      "pursuitGoal": 6
+    },
+    {
+      "registration": "GAM010",
+      "name": "Rafa",
+      "role": "Oficial GAM",
+      "status": "Ativo",
+      "prisonGoal": 4,
+      "pursuitGoal": 6
+    }
+  ],
+  "entries": [
+    {
+      "registration": "GAM001",
+      "prisons": 4,
+      "pursuits": 1
+    },
+    {
+      "registration": "GAM002",
+      "prisons": 6,
+      "pursuits": 12
+    },
+    {
+      "registration": "GAM003",
+      "prisons": 0,
+      "pursuits": 0
+    },
+    {
+      "registration": "GAM004",
+      "prisons": 0,
+      "pursuits": 0
+    },
+    {
+      "registration": "GAM005",
+      "prisons": 0,
+      "pursuits": 1
+    },
+    {
+      "registration": "GAM006",
+      "prisons": 0,
+      "pursuits": 0
+    },
+    {
+      "registration": "GAM007",
+      "prisons": 9,
+      "pursuits": 12
+    },
+    {
+      "registration": "GAM008",
+      "prisons": 15,
+      "pursuits": 12
+    },
+    {
+      "registration": "GAM009",
+      "prisons": 17,
+      "pursuits": 11
+    },
+    {
+      "registration": "GAM010",
+      "prisons": 0,
+      "pursuits": 1
+    }
+  ]
+}

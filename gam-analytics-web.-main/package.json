@@ -1,0 +1,26 @@
+{
+  "name": "gam-analytics-web",
+  "version": "0.7.2",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "check": "node scripts/check-project.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "latest",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "16.2.10",
+    "typescript": "latest"
+  }
+}
