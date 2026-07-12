@@ -114,3 +114,5 @@ O arquivo `import/current-data.json` documenta os dados usados na migração ini
 Antes de publicar esta versão em um ambiente já existente, execute `supabase/update-v0.7.1-identity.sql` no SQL Editor do Supabase.
 Base V0.7.2 reorganizada.
 
+Base V0.7.2 reorganizada e pronta para deploy.
+
