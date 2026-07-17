@@ -1,0 +1,80 @@
+.wrapper {
+  display: grid;
+  gap: 7px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  color: #a9bfd0;
+
+  font-size: 0.74rem;
+}
+
+.header strong {
+  color: #edf7ff;
+}
+
+.track {
+  overflow: hidden;
+
+  background: #06121f;
+
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  border-radius: 999px;
+}
+
+.sm {
+  height: 5px;
+}
+
+.md {
+  height: 8px;
+}
+
+.track span {
+  display: block;
+
+  height: 100%;
+
+  border-radius: inherit;
+}
+
+.blue {
+  background:
+    linear-gradient(
+      90deg,
+      #1477d5,
+      #20b9ff
+    );
+}
+
+.green {
+  background:
+    linear-gradient(
+      90deg,
+      #0fa85b,
+      #19dd7d
+    );
+}
+
+.yellow {
+  background:
+    linear-gradient(
+      90deg,
+      #d89313,
+      #ffbf42
+    );
+}
+
+.red {
+  background:
+    linear-gradient(
+      90deg,
+      #c72f3f,
+      #ef5262
+    );
+}

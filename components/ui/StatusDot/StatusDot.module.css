@@ -1,0 +1,57 @@
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sm {
+  width: 7px;
+  height: 7px;
+}
+
+.md {
+  width: 10px;
+  height: 10px;
+}
+
+.lg {
+  width: 14px;
+  height: 14px;
+}
+
+.online {
+  color: #19dd7d;
+}
+
+.warning {
+  color: #ffae1f;
+}
+
+.offline {
+  color: #ef3f50;
+}
+
+.development {
+  color: #168cff;
+}
+
+.neutral {
+  color: #95a9bf;
+}
+
+.pulse {
+  box-shadow: 0 0 12px currentColor;
+}
+
+.label {
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}

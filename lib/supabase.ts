@@ -14,7 +14,9 @@ export const isDemoMode =
 
 export function getSupabaseClient(): SupabaseClient {
   if (isDemoMode) {
-    throw new Error("Supabase não está configurado: o sistema está em modo demo.");
+    throw new Error(
+      "Supabase não está configurado: o sistema está em modo demo."
+    );
   }
 
   if (!client) {

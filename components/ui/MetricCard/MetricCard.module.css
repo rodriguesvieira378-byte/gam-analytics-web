@@ -1,0 +1,107 @@
+.card {
+  min-height: 140px;
+  padding: 18px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.title {
+  color: #aebfd1;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 10px;
+
+  color: #3fa4ff;
+
+  background: rgba(22, 140, 255, 0.08);
+
+  border: 1px solid rgba(22, 140, 255, 0.18);
+}
+
+.value {
+  display: block;
+
+  margin-top: 18px;
+
+  font-size: clamp(2rem, 3vw, 2.5rem);
+
+  font-weight: 800;
+
+  line-height: 1;
+
+  letter-spacing: -0.04em;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-top: 14px;
+
+  gap: 8px;
+}
+
+.footer small {
+  color: #9bb3c9;
+  font-size: 0.75rem;
+}
+
+.trend {
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.up {
+  color: #19dd7d;
+}
+
+.down {
+  color: #ef5262;
+}
+
+.neutral {
+  color: #91a8bf;
+}
+
+.progress {
+  margin-top: 14px;
+
+  height: 5px;
+
+  border-radius: 999px;
+
+  overflow: hidden;
+
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.progress span {
+  display: block;
+
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: linear-gradient(
+    90deg,
+    #168cff,
+    #20b9ff
+  );
+}

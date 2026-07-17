@@ -1,0 +1,67 @@
+.panel {
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  padding: 15px 16px 12px;
+
+  border-bottom: 1px solid rgba(31, 58, 82, 0.72);
+}
+
+.header h3 {
+  margin: 3px 0 0;
+
+  font-size: 0.96rem;
+}
+
+.header p {
+  margin: 5px 0 0;
+
+  color: #9bb3c9;
+
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.eyebrow {
+  display: block;
+
+  color: #7fa8ca;
+
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+}
+
+.action {
+  flex: 0 0 auto;
+}
+
+.body {
+  padding: 16px;
+}
+
+.footer {
+  padding: 10px 16px;
+
+  color: #9bb3c9;
+
+  border-top: 1px solid rgba(31, 58, 82, 0.72);
+
+  font-size: 0.75rem;
+}
+
+.compact .header {
+  padding: 12px 14px 10px;
+}
+
+.compact .body {
+  padding: 12px 14px;
+}

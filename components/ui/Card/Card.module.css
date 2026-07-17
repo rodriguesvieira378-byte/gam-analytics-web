@@ -1,0 +1,61 @@
+.card {
+  position: relative;
+  min-width: 0;
+
+  background:
+    linear-gradient(
+      160deg,
+      rgba(10, 31, 52, 0.98),
+      rgba(4, 18, 31, 0.98)
+    );
+
+  border: 1px solid #1f3a52;
+  border-radius: 14px;
+
+  color: #f7fbff;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 14px 34px rgba(0,0,0,.22);
+
+  overflow: hidden;
+}
+
+.interactive {
+  cursor: pointer;
+
+  transition:
+    transform .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease;
+}
+
+.interactive:hover {
+  transform: translateY(-3px);
+
+  border-color: rgba(22,140,255,.55);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.05),
+    0 18px 40px rgba(0,0,0,.28);
+}
+
+.default {
+  border-color: #1f3a52;
+}
+
+.blue {
+  border-color: rgba(22,140,255,.45);
+}
+
+.green {
+  border-color: rgba(20,201,111,.45);
+}
+
+.yellow {
+  border-color: rgba(255,174,31,.45);
+}
+
+.red {
+  border-color: rgba(239,63,80,.45);
+}

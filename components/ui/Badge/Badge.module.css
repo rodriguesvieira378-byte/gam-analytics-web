@@ -1,0 +1,62 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: fit-content;
+
+  border-radius: 999px;
+  border: 1px solid transparent;
+
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+
+  white-space: nowrap;
+}
+
+.sm {
+  padding: 4px 8px;
+  font-size: .62rem;
+}
+
+.md {
+  padding: 6px 10px;
+  font-size: .72rem;
+}
+
+.blue {
+  color: #6ec1ff;
+  background: rgba(22,140,255,.10);
+  border-color: rgba(22,140,255,.35);
+}
+
+.green {
+  color: #79e8b1;
+  background: rgba(20,201,111,.10);
+  border-color: rgba(20,201,111,.35);
+}
+
+.yellow {
+  color: #ffd067;
+  background: rgba(255,174,31,.10);
+  border-color: rgba(255,174,31,.35);
+}
+
+.red {
+  color: #ff8f9d;
+  background: rgba(239,63,80,.10);
+  border-color: rgba(239,63,80,.35);
+}
+
+.purple {
+  color: #bf9fff;
+  background: rgba(146,82,255,.10);
+  border-color: rgba(146,82,255,.35);
+}
+
+.neutral {
+  color: #b5c7d8;
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.08);
+}

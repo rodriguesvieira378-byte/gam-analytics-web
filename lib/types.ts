@@ -3,6 +3,13 @@ export type OfficerStatus = "Ativo" | "Inativo";
 export type DiscordActivityType = "Prisão" | "Acompanhamento";
 export type DiscordRecordStatus = "Pendente" | "Aprovado" | "Rejeitado";
 export type AppRole = "Administrador" | "Supervisor" | "Consulta";
+export type ApprovalStatus = "Pendente" | "Aprovado" | "Rejeitado";
+export type AccessEventType =
+  | "LOGIN_SUCESSO"
+  | "LOGIN_FALHA"
+  | "LOGOUT"
+  | "SESSAO_EXPIRADA";
+
 export type AuditAction = "INSERT" | "UPDATE" | "DELETE" | string;
 export type NotificationSeverity = "info" | "success" | "warning" | "critical";
 export type NotificationCategory =
@@ -24,7 +31,6 @@ export type Screen =
   | "fechamento"
   | "auditoria"
   | "acessos";
-
 
 export interface NotificationRead {
   notificationId: string;
@@ -64,6 +70,12 @@ export interface UserAccess {
   displayName: string;
   role: AppRole;
   active: boolean;
+  approvalStatus: ApprovalStatus;
+  requestedAt?: string;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  lastLoginAt?: string | null;
+  lastLogoutAt?: string | null;
 }
 
 export interface GamMember {
@@ -73,8 +85,29 @@ export interface GamMember {
   displayName: string;
   role: AppRole;
   active: boolean;
+  approvalStatus: ApprovalStatus;
+  requestedAt?: string;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectionReason?: string;
+  lastLoginAt?: string | null;
+  lastLogoutAt?: string | null;
+  lastSeenAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface AccessEvent {
+  id: string;
+  ownerId: string;
+  userId: string | null;
+  email: string;
+  eventType: AccessEventType;
+  role?: AppRole | null;
+  userAgent?: string;
+  createdAt: string;
 }
 
 export interface Officer {

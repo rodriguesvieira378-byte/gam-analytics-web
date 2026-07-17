@@ -184,24 +184,54 @@ function officerDataError(error: { code?: string; message?: string }) {
 }
 
 function demoAccess(email?: string | null): UserAccess {
+  const now = new Date().toISOString();
+
   return {
     userId: "demo-admin",
     ownerId: "demo-admin",
     email: email || "admin@gam.local",
     displayName: "Cássio Vieira",
     role: "Administrador",
-    active: true
+    active: true,
+    approvalStatus: "Aprovado",
+    requestedAt: now,
+    approvedAt: now,
+    approvedBy: "demo-admin",
+    lastLoginAt: now,
+    lastLogoutAt: null
   };
 }
 
 function mapAccess(data: unknown): UserAccess {
   if (!data || typeof data !== "object") {
-    throw new Error("Seu usuário ainda não possui acesso ao GAM Analytics.");
+    throw new Error("Seu cadastro ainda não está vinculado ao GAM Analytics.");
   }
 
   const item = data as Record<string, unknown>;
+  const approvalStatus = String(
+    item.approval_status ?? "Aprovado"
+  ) as UserAccess["approvalStatus"];
+
+  if (approvalStatus === "Pendente") {
+    throw new Error(
+      "Seu cadastro está aguardando aprovação de um administrador."
+    );
+  }
+
+  if (approvalStatus === "Rejeitado") {
+    const reason = String(item.rejection_reason ?? "").trim();
+
+    throw new Error(
+      reason
+        ? `Seu pedido de acesso foi rejeitado. Motivo: ${reason}`
+        : "Seu pedido de acesso não foi aprovado. Procure a administração da G.A.M."
+    );
+  }
+
   if (!item.user_id || !item.owner_id || !item.role || item.active === false) {
-    throw new Error("Seu usuário está sem acesso ou foi desativado.");
+    throw new Error(
+      "Seu acesso ao GAM Analytics está desativado. Procure a administração da G.A.M."
+    );
   }
 
   return {
@@ -210,7 +240,23 @@ function mapAccess(data: unknown): UserAccess {
     email: String(item.email ?? ""),
     displayName: String(item.display_name ?? "Usuário GAM"),
     role: String(item.role) as AppRole,
-    active: Boolean(item.active)
+    active: Boolean(item.active),
+    approvalStatus,
+    requestedAt: item.requested_at
+      ? String(item.requested_at)
+      : undefined,
+    approvedAt: item.approved_at
+      ? String(item.approved_at)
+      : null,
+    approvedBy: item.approved_by
+      ? String(item.approved_by)
+      : null,
+    lastLoginAt: item.last_login_at
+      ? String(item.last_login_at)
+      : null,
+    lastLogoutAt: item.last_logout_at
+      ? String(item.last_logout_at)
+      : null
   };
 }
 
@@ -227,11 +273,11 @@ export async function loadCurrentUserAccess(): Promise<UserAccess | null> {
   if (sessionError) throw new Error(sessionError.message);
   if (!sessionData.session) return null;
 
-  const { data, error } = await supabase.rpc("get_current_gam_access");
+  const { data, error } = await supabase.rpc("get_current_gam_access_v2");
   if (error) {
     if (error.code === "PGRST202" || error.code === "42883") {
       throw new Error(
-        "Execute primeiro a atualização V0.4 no SQL Editor do Supabase."
+        "Execute a atualização RC1.2.2 no SQL Editor do Supabase."
       );
     }
     throw new Error(error.message);
@@ -287,6 +333,71 @@ export async function loadSession(): Promise<UserAccess | null> {
   return loadCurrentUserAccess();
 }
 
+export async function requestGamAccess(input: {
+  displayName: string;
+  email: string;
+  password: string;
+}) {
+  const displayName = input.displayName.trim();
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
+
+  if (!displayName) {
+    throw new Error("Informe seu nome.");
+  }
+
+  if (!email) {
+    throw new Error("Informe seu e-mail.");
+  }
+
+  if (password.length < 8) {
+    throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  }
+
+  if (isDemoMode) {
+    throw new Error(
+      "A solicitação de acesso exige o Supabase conectado."
+    );
+  }
+
+  const redirectTo =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${window.location.pathname}`
+      : undefined;
+
+  const { data, error } = await getSupabaseClient().auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: redirectTo,
+      data: {
+        display_name: displayName
+      }
+    }
+  });
+
+  if (error) {
+    if (
+      error.message.toLowerCase().includes("already registered") ||
+      error.message.toLowerCase().includes("already been registered")
+    ) {
+      throw new Error(
+        "Este e-mail já possui uma conta. Use o login ou recupere sua senha."
+      );
+    }
+
+    throw new Error(error.message);
+  }
+
+  if (data.session) {
+    await getSupabaseClient().auth.signOut();
+  }
+
+  return {
+    needsEmailConfirmation: !data.session
+  };
+}
+
 export async function signIn(email: string, password: string) {
   if (isDemoMode) {
     if (!password.trim()) throw new Error("Informe a senha.");
@@ -328,6 +439,34 @@ function mapMember(row: Record<string, unknown>): GamMember {
     displayName: String(row.display_name ?? "Usuário GAM"),
     role: String(row.role) as AppRole,
     active: Boolean(row.active),
+    approvalStatus: String(
+      row.approval_status ?? "Aprovado"
+    ) as GamMember["approvalStatus"],
+    requestedAt: row.requested_at
+      ? String(row.requested_at)
+      : undefined,
+    approvedAt: row.approved_at
+      ? String(row.approved_at)
+      : null,
+    approvedBy: row.approved_by
+      ? String(row.approved_by)
+      : null,
+    rejectedAt: row.rejected_at
+      ? String(row.rejected_at)
+      : null,
+    rejectedBy: row.rejected_by
+      ? String(row.rejected_by)
+      : null,
+    rejectionReason: String(row.rejection_reason ?? ""),
+    lastLoginAt: row.last_login_at
+      ? String(row.last_login_at)
+      : null,
+    lastLogoutAt: row.last_logout_at
+      ? String(row.last_logout_at)
+      : null,
+    lastSeenAt: row.last_seen_at
+      ? String(row.last_seen_at)
+      : null,
     createdAt: String(row.created_at ?? ""),
     updatedAt: String(row.updated_at ?? "")
   };
@@ -345,6 +484,10 @@ export async function loadGamMembers(): Promise<GamMember[]> {
       displayName: access.displayName,
       role: access.role,
       active: true,
+      approvalStatus: "Aprovado",
+      requestedAt: new Date().toISOString(),
+      approvedAt: new Date().toISOString(),
+      approvedBy: access.userId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }];
@@ -352,7 +495,7 @@ export async function loadGamMembers(): Promise<GamMember[]> {
     return initial;
   }
 
-  const { data, error } = await getSupabaseClient().rpc("list_gam_members");
+  const { data, error } = await getSupabaseClient().rpc("list_gam_members_v2");
   if (error) throw new Error(error.message);
   return (Array.isArray(data) ? data : []).map((row) => mapMember(row));
 }
@@ -546,6 +689,10 @@ export async function addGamMember(input: {
       displayName: input.displayName.trim() || input.email.trim(),
       role: input.role,
       active: true,
+      approvalStatus: "Aprovado",
+      requestedAt: new Date().toISOString(),
+      approvedAt: new Date().toISOString(),
+      approvedBy: "demo-admin",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -572,6 +719,141 @@ export async function addGamMember(input: {
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
   return mapMember(row as Record<string, unknown>);
+}
+
+export async function approveGamMember(
+  userId: string,
+  role: AppRole
+): Promise<GamMember> {
+  if (isDemoMode) {
+    const members = await loadGamMembers();
+    const index = members.findIndex(
+      (member) => member.userId === userId
+    );
+
+    if (index < 0) {
+      throw new Error("Solicitação não encontrada.");
+    }
+
+    const previous = { ...members[index] };
+    const now = new Date().toISOString();
+
+    members[index] = {
+      ...members[index],
+      role,
+      active: true,
+      approvalStatus: "Aprovado",
+      approvedAt: now,
+      approvedBy: "demo-admin",
+      rejectedAt: null,
+      rejectedBy: null,
+      rejectionReason: "",
+      updatedAt: now
+    };
+
+    writeLocal(KEYS.members, members);
+
+    appendDemoAudit(
+      "gam_members",
+      userId,
+      "UPDATE",
+      previous as unknown as Record<string, unknown>,
+      members[index] as unknown as Record<string, unknown>
+    );
+
+    return members[index];
+  }
+
+  const { data, error } = await getSupabaseClient().rpc(
+    "approve_gam_member",
+    {
+      p_user_id: userId,
+      p_role: role
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (!row) {
+    throw new Error("A solicitação não foi encontrada.");
+  }
+
+  return mapMember(
+    row as Record<string, unknown>
+  );
+}
+
+export async function rejectGamMember(
+  userId: string,
+  reason: string
+): Promise<GamMember> {
+  const normalizedReason = reason.trim();
+
+  if (normalizedReason.length < 3) {
+    throw new Error("Informe o motivo da rejeição.");
+  }
+
+  if (isDemoMode) {
+    const members = await loadGamMembers();
+    const index = members.findIndex(
+      (member) => member.userId === userId
+    );
+
+    if (index < 0) {
+      throw new Error("Solicitação não encontrada.");
+    }
+
+    const previous = { ...members[index] };
+    const now = new Date().toISOString();
+
+    members[index] = {
+      ...members[index],
+      active: false,
+      approvalStatus: "Rejeitado",
+      rejectedAt: now,
+      rejectedBy: "demo-admin",
+      rejectionReason: normalizedReason,
+      updatedAt: now
+    };
+
+    writeLocal(KEYS.members, members);
+
+    appendDemoAudit(
+      "gam_members",
+      userId,
+      "UPDATE",
+      previous as unknown as Record<string, unknown>,
+      members[index] as unknown as Record<string, unknown>
+    );
+
+    return members[index];
+  }
+
+  const { data, error } = await getSupabaseClient().rpc(
+    "reject_gam_member",
+    {
+      p_user_id: userId,
+      p_reason: normalizedReason
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (!row) {
+    throw new Error("A solicitação não foi encontrada.");
+  }
+
+  return mapMember(
+    row as Record<string, unknown>
+  );
 }
 
 export async function updateGamMember(input: {

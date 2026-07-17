@@ -1,15 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { OperationalCenterV2 } from "./operational-center";
+import { OfficersModule } from "./officers";
+import { OperationsModule } from "./operations";
+import { ReportsModule } from "./reports";
+import { AuditModule } from "./audit";
+import { AdminModule } from "./admin";
 import {
-  DEFAULT_YEAR,
+  GamAppProvider,
+  useGamApp
+} from "./providers/GamAppProvider";
+import {
+  FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
+import {
   MONTHS,
   WEEKS
 } from "@/lib/constants";
 import { createId, getMetrics } from "@/lib/calculations";
 import {
   addGamMember,
+  approveGamMember,
   closeMonth,
   deleteDiscordRecord,
   deleteEntry,
@@ -23,6 +40,7 @@ import {
   loadSession,
   markNotificationsRead,
   normalizeDiscordMessageUrl,
+  rejectGamMember,
   reviewDiscordRecord,
   saveDiscordRecord,
   saveDiscordRecordsBatch,
@@ -31,10 +49,17 @@ import {
   uploadOfficerPhoto,
   removeOfficerPhoto,
   setNotificationRead,
+  requestGamAccess,
   signIn,
   signOut,
   updateGamMember
 } from "@/lib/repository";
+import {
+  completePasswordRecoverySession,
+  isPasswordRecoveryUrl,
+  requestPasswordReset,
+  updateCurrentUserPassword
+} from "@/lib/auth-password";
 import { isDemoMode } from "@/lib/supabase";
 import type {
   AppRole,
@@ -58,7 +83,7 @@ import type {
 } from "@/lib/types";
 
 const PAGE_META: Record<Screen, [string, string]> = {
-  dashboard: ["Dashboard", "Visão geral da operação"],
+  dashboard: ["Centro Operacional", "Visão geral da operação em tempo real"],
   notificacoes: ["Notificações", "Alertas e pendências operacionais"],
   efetivo: ["Efetivo", "Cadastro central da unidade"],
   lancamentos: ["Lançamentos", "Registro semanal de atividades"],
@@ -613,31 +638,238 @@ function Selectors({
   );
 }
 
+type LoginMode = "login" | "recovery" | "signup";
+
 function LoginScreen({
   onAuthenticated
 }: {
   onAuthenticated: (access: UserAccess) => void;
 }) {
-  const [email, setEmail] = useState(
-    process.env.NEXT_PUBLIC_OWNER_EMAIL ?? ""
-  );
+  const [mode, setMode] = useState<LoginMode>("login");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [signupCompleted, setSignupCompleted] = useState(false);
+  const [signupNeedsConfirmation, setSignupNeedsConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  function changeMode(nextMode: LoginMode) {
+    setMode(nextMode);
+    setError("");
+    setMessage("");
+    setSignupCompleted(false);
+    setSignupNeedsConfirmation(false);
+    setEmail("");
+    setPassword("");
+    setConfirmation("");
+  }
+
+  async function handleRecoverySubmit(event: FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}${window.location.pathname}`
+          : undefined;
+
+      await requestPasswordReset(email, redirectTo);
+
+      setMessage(
+        "Se existir uma conta com este e-mail, enviaremos um link para redefinir a senha."
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível enviar o link de recuperação."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSignupSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+
+    if (password.length < 8) {
+      setError("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    if (password !== confirmation) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await requestGamAccess({
+        displayName,
+        email,
+        password
+      });
+
+      setSignupNeedsConfirmation(
+        result.needsEmailConfirmation
+      );
+      setSignupCompleted(true);
+      setMessage("");
+      setPassword("");
+      setConfirmation("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível criar sua solicitação de acesso."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
+    setMessage("");
 
     try {
       const authenticatedAccess = await signIn(email, password);
       onAuthenticated(authenticatedAccess);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao entrar.");
+      if (
+        cause instanceof Error &&
+        cause.message === "Invalid login credentials"
+      ) {
+        setError(
+          "E-mail ou senha incorretos.\nVerifique os dados e tente novamente."
+        );
+      } else {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Não foi possível realizar o login. Tente novamente."
+        );
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  const submitHandler =
+    mode === "recovery"
+      ? handleRecoverySubmit
+      : mode === "signup"
+        ? handleSignupSubmit
+        : handleSubmit;
+
+  if (mode === "signup" && signupCompleted) {
+    return (
+      <main className="login">
+        <section className="login-card">
+          <div className="login-hero">
+            <div>
+              <Image
+                className="login-brand-logo"
+                src="/gam-logo.svg"
+                alt="GAM Analytics"
+                width={920}
+                height={260}
+                priority
+              />
+              <h1 className="sr-only">
+                Solicitação enviada
+              </h1>
+              <p>
+                Seu pedido de acesso ao GAM Analytics foi registrado com segurança.
+              </p>
+            </div>
+
+            <div className="hero-tags">
+              <span className="tag">OÁSIS RP</span>
+              <span className="tag">Acesso privado</span>
+              <span className="tag">Status pendente</span>
+            </div>
+          </div>
+
+          <section className="login-form">
+            <div
+              style={{
+                display: "grid",
+                gap: 14,
+                textAlign: "center"
+              }}
+            >
+              <div
+                aria-hidden="true"
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 58,
+                  height: 58,
+                  margin: "0 auto",
+                  borderRadius: "50%",
+                  fontSize: 28,
+                  background: "rgba(31, 195, 122, 0.12)",
+                  border: "1px solid rgba(31, 195, 122, 0.35)"
+                }}
+              >
+                ✓
+              </div>
+
+              <div>
+                <h2>Solicitação enviada</h2>
+                <p>
+                  A administração da G.A.M. analisará seu cadastro.
+                </p>
+              </div>
+
+              <div className="demo-note">
+                <strong>Status: Aguardando aprovação</strong>
+                <br />
+                {signupNeedsConfirmation
+                  ? "Confirme também o e-mail enviado pelo Supabase antes de tentar entrar."
+                  : "Você poderá entrar assim que um administrador aprovar seu acesso."}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  padding: 12,
+                  textAlign: "left",
+                  borderRadius: 10,
+                  background: "rgba(5, 19, 33, 0.68)",
+                  border: "1px solid rgba(39, 83, 119, 0.55)"
+                }}
+              >
+                <span>1. Solicitação registrada</span>
+                <span>2. Análise administrativa</span>
+                <span>3. Liberação do acesso</span>
+              </div>
+
+              <button
+                type="button"
+                className="btn"
+                onClick={() => changeMode("login")}
+              >
+                Voltar para o login
+              </button>
+            </div>
+          </section>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -659,6 +891,7 @@ function LoginScreen({
               acompanhamento do efetivo, inteligência e relatórios.
             </p>
           </div>
+
           <div className="hero-tags">
             <span className="tag">OÁSIS RP</span>
             <span className="tag">Acesso privado</span>
@@ -669,44 +902,168 @@ function LoginScreen({
           </div>
         </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <h2>Acesso ao GAM Analytics</h2>
+        <form
+          className="login-form"
+          onSubmit={submitHandler}
+          autoComplete="off"
+        >
+          <h2>
+            {mode === "recovery"
+              ? "Recuperar senha"
+              : mode === "signup"
+                ? "Solicitar acesso"
+                : "Acesso ao GAM Analytics"}
+          </h2>
+
           <p>
-            Entre com o usuário autorizado pela administração da unidade.
+            {mode === "recovery"
+              ? "Informe seu e-mail para receber o link de redefinição."
+              : mode === "signup"
+                ? "Crie sua conta. O acesso será liberado após aprovação administrativa."
+                : "Entre com o usuário autorizado pela administração da unidade."}
           </p>
+
+          {mode === "signup" && (
+            <label className="field">
+              <span>Nome exibido</span>
+              <input
+                value={displayName}
+                onChange={(event) =>
+                  setDisplayName(event.target.value)
+                }
+                placeholder="Ex.: Cássio Vieira"
+                required
+                autoComplete="name"
+              />
+            </label>
+          )}
 
           <label className="field">
             <span>E-mail</span>
             <input
               type="email"
+              name="gam-access-email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
               required
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </label>
 
-          <label className="field">
-            <span>Senha</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </label>
+          {mode !== "recovery" && (
+            <label className="field">
+              <span>Senha</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
+                minLength={mode === "signup" ? 8 : undefined}
+                required
+                autoComplete={
+                  mode === "signup"
+                    ? "new-password"
+                    : "current-password"
+                }
+              />
+            </label>
+          )}
 
-          {error && <div className="form-error">{error}</div>}
+          {mode === "signup" && (
+            <label className="field">
+              <span>Confirmar senha</span>
+              <input
+                type="password"
+                value={confirmation}
+                onChange={(event) =>
+                  setConfirmation(event.target.value)
+                }
+                minLength={8}
+                required
+                autoComplete="new-password"
+              />
+            </label>
+          )}
 
-          <button className="btn" type="submit" disabled={loading}>
-            {loading ? "Entrando..." : "Entrar no sistema"}
-          </button>
+          {error && (
+            <div className="form-error">
+              {error}
+            </div>
+          )}
+
+          {message && (
+            <div className="demo-note">
+              {message}
+            </div>
+          )}
+
+          {mode === "login" ? (
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+                marginTop: 2
+              }}
+            >
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => changeMode("signup")}
+              >
+                Criar conta
+              </button>
+
+              <button
+                className="btn"
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? "Entrando..." : "Entrar no sistema"}
+              </button>
+
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => changeMode("recovery")}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                className="btn"
+                type="submit"
+                disabled={loading}
+              >
+                {loading
+                  ? mode === "recovery"
+                    ? "Enviando..."
+                    : "Criando solicitação..."
+                  : mode === "recovery"
+                    ? "Enviar link de recuperação"
+                    : "Criar conta e solicitar acesso"}
+              </button>
+
+              <button
+                type="button"
+                className="btn ghost"
+                style={{ marginTop: 10 }}
+                onClick={() => changeMode("login")}
+              >
+                Voltar para o login
+              </button>
+            </>
+          )}
 
           {isDemoMode && (
             <div className="demo-note">
-              O projeto está em modo local. Use seu e-mail e qualquer senha não
-              vazia. Após configurar o Supabase, a autenticação passa a ser
-              real.
+              O cadastro e a recuperação por e-mail funcionam após conectar o Supabase.
             </div>
           )}
         </form>
@@ -715,15 +1072,225 @@ function LoginScreen({
   );
 }
 
-export function GamApp() {
+function PasswordRecoveryGate({
+  children
+}: {
+  children: ReactNode;
+}) {
+  const [checking, setChecking] = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function prepareRecovery() {
+      try {
+        const recovery = isPasswordRecoveryUrl();
+
+        if (!recovery) {
+          if (mounted) setRecoveryMode(false);
+          return;
+        }
+
+        await completePasswordRecoverySession();
+
+        if (mounted) {
+          setRecoveryMode(true);
+        }
+      } catch (cause) {
+        if (mounted) {
+          setRecoveryMode(true);
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "O link de recuperação é inválido ou expirou."
+          );
+        }
+      } finally {
+        if (mounted) setChecking(false);
+      }
+    }
+
+    void prepareRecovery();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handlePasswordUpdate(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+
+    if (password.length < 8) {
+      setError(
+        "A nova senha precisa ter pelo menos 8 caracteres."
+      );
+      return;
+    }
+
+    if (password !== confirmation) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await updateCurrentUserPassword(password);
+      setMessage(
+        "Senha alterada com sucesso. Você já pode voltar ao login."
+      );
+      setPassword("");
+      setConfirmation("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível alterar a senha."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (checking) {
+    return (
+      <div className="full-loader">
+        Verificando recuperação de senha...
+      </div>
+    );
+  }
+
+  if (!recoveryMode) {
+    return <>{children}</>;
+  }
+
+  return (
+    <main className="login">
+      <section className="login-card">
+        <div className="login-hero">
+          <div>
+            <Image
+              className="login-brand-logo"
+              src="/gam-logo.svg"
+              alt="GAM Analytics"
+              width={920}
+              height={260}
+              priority
+            />
+            <h1 className="sr-only">
+              Redefinir senha
+            </h1>
+            <p>
+              Crie uma nova senha para voltar a acessar o GAM Analytics.
+            </p>
+          </div>
+        </div>
+
+        <form
+          className="login-form"
+          onSubmit={handlePasswordUpdate}
+        >
+          <h2>Definir nova senha</h2>
+          <p>
+            Use pelo menos 8 caracteres e confirme a senha.
+          </p>
+
+          <label className="field">
+            <span>Nova senha</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
+              minLength={8}
+              required
+              autoComplete="new-password"
+            />
+          </label>
+
+          <label className="field">
+            <span>Confirmar nova senha</span>
+            <input
+              type="password"
+              value={confirmation}
+              onChange={(event) =>
+                setConfirmation(event.target.value)
+              }
+              minLength={8}
+              required
+              autoComplete="new-password"
+            />
+          </label>
+
+          {error && (
+            <div className="form-error">
+              {error}
+            </div>
+          )}
+
+          {message && (
+            <div className="demo-note">
+              {message}
+            </div>
+          )}
+
+          <button
+            className="btn"
+            type="submit"
+            disabled={saving}
+          >
+            {saving
+              ? "Alterando senha..."
+              : "Alterar senha"}
+          </button>
+
+          {message && (
+            <button
+              className="btn secondary"
+              type="button"
+              onClick={() => {
+                window.history.replaceState(
+                  {},
+                  document.title,
+                  window.location.pathname
+                );
+                window.location.reload();
+              }}
+            >
+              Voltar para o login
+            </button>
+          )}
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function GamAppContent() {
   const [access, setAccess] = useState<UserAccess | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [year] = useState(DEFAULT_YEAR);
-  const [month, setMonth] = useState(6);
-  const [week, setWeek] = useState(1);
-  const [reportMode, setReportMode] = useState<ReportMode>("semanal");
+  const [year] = useState(() => new Date().getFullYear());
+  const {
+    period: { month, week },
+    sync,
+    setMonth,
+    setWeek,
+    startSync,
+    finishSync
+  } = useGamApp();
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [entries, setEntries] = useState<WeeklyEntry[]>([]);
   const [discordRecords, setDiscordRecords] = useState<DiscordRecord[]>([]);
@@ -738,6 +1305,40 @@ export function GamApp() {
   const [discordSearch, setDiscordSearch] = useState("");
   const [closures, setClosures] = useState<MonthClosure[]>([]);
   const [members, setMembers] = useState<GamMember[]>([]);
+
+  useEffect(() => {
+    if (
+      !access ||
+      access.role !== "Administrador" ||
+      isDemoMode
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    const refreshMembers = async () => {
+      try {
+        const nextMembers = await loadGamMembers();
+
+        if (active) {
+          setMembers(nextMembers);
+        }
+      } catch {
+        // A atualização principal continua responsável por exibir erros.
+      }
+    };
+
+    const interval = window.setInterval(
+      refreshMembers,
+      20000
+    );
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [access]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [notificationReads, setNotificationReads] = useState<NotificationRead[]>([]);
   const [notificationStatusFilter, setNotificationStatusFilter] = useState("nao-lidas");
@@ -1001,27 +1602,37 @@ export function GamApp() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!access) return;
+  const refreshSystemData = useCallback(
+    async (showLoader = false) => {
+      if (!access) return;
 
-    Promise.all([
-      loadOfficers(),
-      loadEntries(),
-      loadDiscordRecords(),
-      loadClosures(),
-      loadGamMembers(),
-      canAudit ? loadAuditLogs() : Promise.resolve([]),
-      loadNotificationReads()
-    ])
-      .then(([
-        officerData,
-        entryData,
-        discordData,
-        closureData,
-        memberData,
-        auditData,
-        notificationReadData
-      ]) => {
+      if (showLoader) {
+        setLoading(true);
+      }
+
+      startSync();
+
+      try {
+        const [
+          officerData,
+          entryData,
+          discordData,
+          closureData,
+          memberData,
+          auditData,
+          notificationReadData
+        ] = await Promise.all([
+          loadOfficers(),
+          loadEntries(),
+          loadDiscordRecords(),
+          loadClosures(),
+          loadGamMembers(),
+          canAudit
+            ? loadAuditLogs()
+            : Promise.resolve([]),
+          loadNotificationReads()
+        ]);
+
         setOfficers(officerData);
         setEntries(entryData);
         setDiscordRecords(discordData);
@@ -1029,15 +1640,76 @@ export function GamApp() {
         setMembers(memberData);
         setAuditLogs(auditData);
         setNotificationReads(notificationReadData);
-      })
-      .catch((cause) => {
-        notify(
-          cause instanceof Error ? cause.message : "Falha ao carregar dados.",
-          "error"
-        );
-      })
-      .finally(() => setLoading(false));
-  }, [access, canAudit]);
+        finishSync();
+      } catch (cause) {
+        finishSync();
+
+        setToast({
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Falha ao atualizar os dados.",
+          kind: "error"
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      access,
+      canAudit,
+      finishSync,
+      startSync
+    ]
+  );
+
+  useEffect(() => {
+    void refreshSystemData(true);
+  }, [refreshSystemData]);
+
+  useEffect(() => {
+    if (!access) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        void refreshSystemData();
+      }
+    };
+
+    const refreshWhenFocused = () => {
+      void refreshSystemData();
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshSystemData();
+      }
+    }, 60_000);
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshWhenVisible
+    );
+
+    window.addEventListener(
+      "focus",
+      refreshWhenFocused
+    );
+
+    return () => {
+      window.clearInterval(intervalId);
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshWhenVisible
+      );
+
+      window.removeEventListener(
+        "focus",
+        refreshWhenFocused
+      );
+    };
+  }, [access, refreshSystemData]);
 
   async function refreshAuditLogs() {
     if (!canAudit) return;
@@ -1662,6 +2334,146 @@ export function GamApp() {
     }
   }
 
+  async function handleAddMemberInput(input: {
+    email: string;
+    displayName: string;
+    role: AppRole;
+  }) {
+    if (!isAdmin) {
+      notify(
+        "Somente o administrador pode gerenciar acessos.",
+        "error"
+      );
+      return;
+    }
+
+    const email = input.email.trim().toLowerCase();
+    const displayName = input.displayName.trim();
+
+    if (!email) {
+      notify("Informe o e-mail do usuário.", "error");
+      return;
+    }
+
+    try {
+      const member = await addGamMember({
+        email,
+        displayName,
+        role: input.role
+      });
+
+      setMembers((current) => {
+        const index = current.findIndex(
+          (item) => item.userId === member.userId
+        );
+
+        if (index < 0) {
+          return [...current, member];
+        }
+
+        const next = [...current];
+        next[index] = member;
+        return next;
+      });
+
+      void refreshAuditLogs();
+      notify("Acesso vinculado com sucesso.");
+    } catch (cause) {
+      notify(
+        cause instanceof Error
+          ? cause.message
+          : "Falha ao vincular usuário.",
+        "error"
+      );
+    }
+  }
+
+  async function handleApproveRequest(
+    userId: string,
+    role: AppRole
+  ) {
+    if (!isAdmin) {
+      notify(
+        "Somente o administrador pode aprovar acessos.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      const saved = await approveGamMember(
+        userId,
+        role
+      );
+
+      setMembers((current) =>
+        current.map((member) =>
+          member.userId === saved.userId
+            ? saved
+            : member
+        )
+      );
+
+      void refreshAuditLogs();
+
+      notify(
+        `${saved.displayName} foi aprovado como ${saved.role}.`
+      );
+    } catch (cause) {
+      notify(
+        cause instanceof Error
+          ? cause.message
+          : "Falha ao aprovar a solicitação.",
+        "error"
+      );
+
+      throw cause;
+    }
+  }
+
+  async function handleRejectRequest(
+    userId: string,
+    reason: string
+  ) {
+    if (!isAdmin) {
+      notify(
+        "Somente o administrador pode rejeitar acessos.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      const saved = await rejectGamMember(
+        userId,
+        reason
+      );
+
+      setMembers((current) =>
+        current.map((member) =>
+          member.userId === saved.userId
+            ? saved
+            : member
+        )
+      );
+
+      void refreshAuditLogs();
+
+      notify(
+        `A solicitação de ${saved.displayName} foi rejeitada.`
+      );
+    } catch (cause) {
+      notify(
+        cause instanceof Error
+          ? cause.message
+          : "Falha ao rejeitar a solicitação.",
+        "error"
+      );
+
+      throw cause;
+    }
+  }
+
   async function handleUpdateMember(member: GamMember) {
     if (!isAdmin) return;
     try {
@@ -1869,24 +2681,20 @@ export function GamApp() {
           />
           <div>
             <strong>GAM Analytics</strong>
-            <span>Web • V0.7.2</span>
+            <span>Centro Operacional • V0.8.5.2</span>
           </div>
         </div>
 
         <nav className="nav">
           {(
             [
-              ["dashboard", "◫", "Dashboard", true],
-              ["notificacoes", "♢", "Notificações", true],
-              ["efetivo", "♟", "Efetivo", canOperate],
-              ["lancamentos", "＋", "Lançamentos", canOperate],
-              ["discord", "↗", "Discord / Aprovações", canOperate],
-              ["supervisao", "◎", "Supervisão", true],
+              ["dashboard", "⌂", "Centro Operacional", true],
+              ["efetivo", "♙", "Efetivo", canOperate],
+              ["discord", "⬡", "Operações", canOperate],
               ["inteligencia", "⌁", "Inteligência", true],
-              ["relatorio", "▤", "Relatório Comando", true],
-              ["fechamento", "✓", "Fechamento", canClose],
-              ["auditoria", "⌕", "Auditoria", canAudit],
-              ["acessos", "⚿", "Acessos", isAdmin]
+              ["relatorio", "▤", "Relatórios", true],
+              ["auditoria", "◉", "Auditoria", canAudit],
+              ["acessos", "⚙", "Administração", isAdmin]
             ] as [Screen, string, string, boolean][]
           )
             .filter(([, , , visible]) => visible)
@@ -1913,8 +2721,15 @@ export function GamApp() {
             ))}
         </nav>
 
+        <div className="sidebar-system" aria-label="Status do sistema">
+          <span>SISTEMA</span>
+          <div><i />Supabase <small>Online</small></div>
+          <div><i />GAM Sync <small>Online</small></div>
+          <div><i className="development" />Discord Bot <small>Em desenvolvimento</small></div>
+        </div>
+
         <div className="sidebar-footer">
-          <strong>OÁSIS RP</strong>
+          <strong>G.A.M. | OÁSIS RP</strong>
           <br />
           {isDemoMode ? "Modo local" : "Banco Supabase ativo"}
           <br />
@@ -1923,7 +2738,7 @@ export function GamApp() {
       </aside>
 
       <main className="main">
-        <header className="topbar">
+        <header className={`topbar ${screen === "dashboard" ? "dashboard-topbar" : ""}`}>
           <div className="top-left">
             <button
               className="menu-btn"
@@ -1939,6 +2754,28 @@ export function GamApp() {
           </div>
 
           <div className="userbox">
+            <div
+              className="gam-period-status"
+              title="Período e sincronização ativos"
+            >
+              <strong>
+                {MONTHS[month - 1]} • Semana {week}
+              </strong>
+              <span>
+                {sync.syncing
+                  ? "Atualizando dados..."
+                  : sync.lastSyncAt
+                    ? `Atualizado às ${new Intl.DateTimeFormat(
+                        "pt-BR",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        }
+                      ).format(new Date(sync.lastSyncAt))}`
+                    : "Sincronizando..."}
+              </span>
+            </div>
+
             <button
               type="button"
               className={`notification-bell ${
@@ -1975,141 +2812,27 @@ export function GamApp() {
           </div>
         </header>
 
-        <div className="content">
+        <div className={`content ${screen === "dashboard" ? "dashboard-content" : ""}`}>
           {loading ? (
             <div className="full-loader contained">Carregando dados...</div>
           ) : (
             <>
               {screen === "dashboard" && (
-                <section className="page">
-                  <PageHeader
-                    title="Centro Operacional"
-                    description="Acompanhe a produtividade da unidade em tempo real."
-                  >
-                    <Selectors
-                      month={month}
-                      week={week}
-                      onMonth={setMonth}
-                      onWeek={setWeek}
-                    />
-                  </PageHeader>
-
-                  <div className="grid kpis">
-                    <Kpi label="Prisões" value={totalPrisons} detail="Atividades registradas" />
-                    <Kpi label="Acompanhamentos" value={totalPursuits} detail="Atividades registradas" />
-                    <Kpi label="Metas atingidas" value={metGoals} detail={`${activeOfficers.length} integrantes ativos`} kind="good" />
-                    <Kpi label="Sem registro" value={noEntries} detail="Precisam de verificação" kind={noEntries > 0 ? "bad" : "good"} />
-                  </div>
-
-                  <div className="grid two margin-top">
-                    <Card title="Desempenho por integrante" subtitle="Atividades da semana">
-                      <PerformanceBars metrics={metrics} />
-                    </Card>
-
-                    <Card title="Leitura rápida" subtitle="Situação do efetivo">
-                      <div className="activity-list">
-                        {[
-                          ["Meta atingida", "META ATINGIDA"],
-                          ["Meta parcial", "META PARCIAL"],
-                          ["Abaixo da meta", "ABAIXO DA META"],
-                          ["Sem registro", "SEM REGISTRO"]
-                        ].map(([label, situation]) => (
-                          <div className="activity" key={situation}>
-                            <span className="dot" />
-                            <div>
-                              <strong>{label}</strong>
-                              <small>
-                                Semana {week} • {MONTHS[month - 1]}
-                              </small>
-                            </div>
-                            <Badge
-                              text={String(
-                                metrics.filter(
-                                  (item) => item.situation === situation
-                                ).length
-                              )}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  </div>
-
-                  <Card
-                    title="Últimos lançamentos"
-                    subtitle="Registros do período"
-                    className="margin-top"
-                  >
-                    <div className="activity-list">
-                      {periodEntries.length === 0 ? (
-                        <div className="empty">Nenhum lançamento neste período.</div>
-                      ) : (
-                        periodEntries
-                          .slice()
-                          .reverse()
-                          .slice(0, 6)
-                          .map((entry) => {
-                            const officer = officers.find(
-                              (item) => item.id === entry.officerId
-                            );
-
-                            return (
-                              <div className="activity" key={entry.id}>
-                                <span className="dot" />
-                                <div>
-                                  <strong>{officer?.name ?? "Integrante"}</strong>
-                                  <small>
-                                    {entry.prisons} prisões • {entry.pursuits} acompanhamentos
-                                  </small>
-                                </div>
-                                <Badge text={officer?.registration ?? "—"} />
-                              </div>
-                            );
-                          })
-                      )}
-                    </div>
-                  </Card>
-
-                  {canAudit && (
-                    <div className="grid two margin-top">
-                      <Card
-                        title="Atividades recentes"
-                        subtitle="Rastreamento das últimas ações"
-                      >
-                        <AuditActivityList
-                          logs={auditLogs}
-                          members={members}
-                          officers={officers}
-                          limit={6}
-                          onInspect={setSelectedAuditLog}
-                        />
-                      </Card>
-
-                      <Card
-                        title="Segurança operacional"
-                        subtitle="Controles ativos na V0.5"
-                      >
-                        <div className="alert-list">
-                          <InfoAlert
-                            title="Alterações rastreadas"
-                            text="Cadastros, lançamentos, aprovações, acessos e exclusões deixam histórico."
-                            badge="AUDIT"
-                          />
-                          <InfoAlert
-                            title="Exclusão protegida"
-                            text="Ações destrutivas exigem confirmação digitada antes da execução."
-                            badge="LOCK"
-                          />
-                          <InfoAlert
-                            title="Backup disponível"
-                            text="O administrador pode exportar uma cópia completa dos dados em JSON."
-                            badge="BACKUP"
-                          />
-                        </div>
-                      </Card>
-                    </div>
-                  )}
-                </section>
+                <OperationalCenterV2
+                  metrics={metrics}
+                  officers={officers}
+                  entries={entries}
+                  discordRecords={discordRecords}
+                  activeCount={activeOfficers.length}
+                  totalPrisons={totalPrisons}
+                  totalPursuits={totalPursuits}
+                  metGoals={metGoals}
+                  noEntries={noEntries}
+                  month={month}
+                  week={week}
+                  onMonthChange={setMonth}
+                  onWeekChange={setWeek}
+                />
               )}
 
               {screen === "notificacoes" && (
@@ -2138,39 +2861,6 @@ export function GamApp() {
 
               {screen === "efetivo" && (
                 <section className="page">
-                  <PageHeader
-                    title="Efetivo GAM"
-                    description="Identidade, desempenho e situação operacional dos integrantes."
-                  >
-                    <div className="effective-head-actions">
-                      <Selectors
-                        month={month}
-                        week={week}
-                        onMonth={setMonth}
-                        onWeek={setWeek}
-                      />
-                      {canOperate && (
-                        <button
-                          className="btn"
-                          onClick={() =>
-                            setEditingOfficer({
-                              id: "",
-                              registration: "",
-                              name: "",
-                              role: "Estagiário",
-                              status: "Ativo",
-                              prisonGoal: 6,
-                              pursuitGoal: 12,
-                              discordUrl: ""
-                            })
-                          }
-                        >
-                          ＋ Novo integrante
-                        </button>
-                      )}
-                    </div>
-                  </PageHeader>
-
                   {editingOfficer && (
                     <Card
                       title={
@@ -2222,12 +2912,15 @@ export function GamApp() {
                           </select>
                         </label>
                         <label className="field full">
-                          <span>Link do Discord (opcional)</span>
+                          <span>ID do Discord (opcional)</span>
                           <input
                             name="discordUrl"
-                            type="url"
-                            placeholder="https://discord.com/..."
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]{10,25}"
+                            placeholder="Ex.: 123456789012345678"
                             defaultValue={editingOfficer.discordUrl ?? ""}
+                            autoComplete="off"
                           />
                         </label>
                         <div className="form-actions full">
@@ -2246,54 +2939,29 @@ export function GamApp() {
                     </Card>
                   )}
 
-                  <div className="effective-summary">
-                    <div><span>Total</span><strong>{officers.length}</strong></div>
-                    <div><span>Ativos</span><strong>{officers.filter((item) => item.status === "Ativo").length}</strong></div>
-                    <div><span>Meta atingida</span><strong>{effectiveMetrics.filter((item) => item.situation === "META ATINGIDA").length}</strong></div>
-                    <div><span>Sem registro</span><strong>{effectiveMetrics.filter((item) => item.situation === "SEM REGISTRO").length}</strong></div>
-                  </div>
-
-                  <div className="officer-card-grid">
-                    {effectiveMetrics.map((officer) => (
-                      <article className={`officer-card ${officer.status === "Inativo" ? "inactive" : ""}`} key={officer.id}>
-                        <div className="officer-card-top">
-                          <OfficerAvatar officer={officer} size="large" />
-                          <div className="officer-card-identity">
-                            <span className="officer-registration">{officer.registration}</span>
-                            <h3>{officer.name}</h3>
-                            <p>{officer.role}</p>
-                          </div>
-                          <Badge text={officer.status} />
-                        </div>
-
-                        <div className="officer-card-stats">
-                          <div><span>Prisões</span><strong>{officer.prisons}<small>/{officer.prisonGoal}</small></strong></div>
-                          <div><span>Acompanhamentos</span><strong>{officer.pursuits}<small>/{officer.pursuitGoal}</small></strong></div>
-                          <div><span>Total</span><strong>{officer.total}</strong></div>
-                        </div>
-
-                        <div className="officer-card-progress">
-                          <div>
-                            <span>Progresso semanal</span>
-                            <strong>{Math.round(officer.progress * 100)}%</strong>
-                          </div>
-                          <div className="progress"><span style={{ width: `${Math.round(officer.progress * 100)}%` }} /></div>
-                          <small>{officer.situation} • {officer.guidance}</small>
-                        </div>
-
-                        <div className="officer-card-actions">
-                          <button className="btn secondary" type="button" onClick={() => setProfileOfficerId(officer.id)}>
-                            Ver ficha completa
-                          </button>
-                          {canOperate && (
-                            <button className="table-action" type="button" onClick={() => setEditingOfficer(officer)}>
-                              Editar
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
+                  <OfficersModule
+                    metrics={effectiveMetrics}
+                    officers={officers}
+                    month={month}
+                    week={week}
+                    canOperate={canOperate}
+                    onMonthChange={setMonth}
+                    onWeekChange={setWeek}
+                    onNewOfficer={() =>
+                      setEditingOfficer({
+                        id: "",
+                        registration: "",
+                        name: "",
+                        role: "Estagiário",
+                        status: "Ativo",
+                        prisonGoal: 6,
+                        pursuitGoal: 12,
+                        discordUrl: ""
+                      })
+                    }
+                    onEditOfficer={setEditingOfficer}
+                    onOpenProfile={setProfileOfficerId}
+                  />
                 </section>
               )}
 
@@ -2461,518 +3129,14 @@ export function GamApp() {
               )}
 
               {screen === "discord" && (
-                <section className="page">
-                  <PageHeader
-                    title="Registro do Discord"
-                    description="Registre uma comprovação ou lance várias de uma vez."
-                  >
-                    <Selectors
-                      month={month}
-                      week={week}
-                      onMonth={setMonth}
-                      onWeek={setWeek}
-                    />
-                  </PageHeader>
-
-                  <div className="grid kpis approval-kpis">
-                    <Kpi label="Pendentes" value={pendingDiscord} detail="Aguardando análise" kind={pendingDiscord > 0 ? "warn" : "good"} />
-                    <Kpi label="Aprovados" value={approvedDiscord} detail="Já contabilizados" kind="good" />
-                    <Kpi label="Rejeitados" value={rejectedDiscord} detail="Não entram nas metas" kind={rejectedDiscord > 0 ? "bad" : ""} />
-                    <Kpi label="Nível de acesso" value={access.role} detail={canReview ? "Pode analisar registros" : "Somente visualização"} />
-                  </div>
-
-                  {canReview && pendingDiscord > 0 && (
-                    <DiscordRecordsTable
-                      title="Fila de aprovação"
-                      subtitle={`${pendingDiscord} registro(s) aguardando análise`}
-                      records={discordPeriodRecords.filter((record) => record.status === "Pendente")}
-                      officers={officers}
-                      members={members}
-                      onDelete={handleDeleteDiscordRecord}
-                      onReview={handleReviewDiscordRecord}
-                      canReview={canReview}
-                      isAdmin={isAdmin}
-                    />
-                  )}
-
-                  <div className="segmented-control margin-top" role="tablist">
-                    <button
-                      type="button"
-                      className={discordMode === "individual" ? "active" : ""}
-                      onClick={() => setDiscordMode("individual")}
-                    >
-                      Registro individual
-                    </button>
-                    <button
-                      type="button"
-                      className={discordMode === "lote" ? "active" : ""}
-                      onClick={() => setDiscordMode("lote")}
-                    >
-                      Registro em lote
-                    </button>
-                  </div>
-
-                  {discordMode === "individual" ? (
-                    <div className="grid two margin-top">
-                      <Card
-                        title="Nova comprovação"
-                        subtitle="Link da mensagem original"
-                      >
-                        <form
-                          className="form-grid"
-                          onSubmit={handleSaveDiscordRecord}
-                        >
-                          <label className="field full">
-                            <span>Integrante</span>
-                            <select name="officerId" required>
-                              <option value="">Selecione</option>
-                              {activeOfficers.map((officer) => (
-                                <option key={officer.id} value={officer.id}>
-                                  {officer.registration} — {officer.name} (
-                                  {officer.role})
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <label className="field">
-                            <span>Tipo do registro</span>
-                            <select name="activityType" defaultValue="Prisão">
-                              <option>Prisão</option>
-                              <option>Acompanhamento</option>
-                            </select>
-                          </label>
-
-                          <label className="field">
-                            <span>Quantidade</span>
-                            <input
-                              name="quantity"
-                              type="number"
-                              min={1}
-                              step={1}
-                              defaultValue={1}
-                              required
-                            />
-                          </label>
-
-                          <label className="field full">
-                            <span>Link da mensagem no Discord</span>
-                            <input
-                              name="discordUrl"
-                              type="url"
-                              placeholder="https://discord.com/channels/..."
-                              autoComplete="off"
-                              required
-                            />
-                          </label>
-
-                          <label className="field full">
-                            <span>Observação</span>
-                            <textarea
-                              name="note"
-                              rows={3}
-                              placeholder="Opcional"
-                            />
-                          </label>
-
-                          <div className="form-actions full">
-                            <button className="btn" type="submit">
-                              Enviar para aprovação
-                            </button>
-                            <button className="btn secondary" type="reset">
-                              Limpar
-                            </button>
-                          </div>
-                        </form>
-                      </Card>
-
-                      <Card
-                        title="Fluxo rápido"
-                        subtitle="Sem alterar o Discord da polícia"
-                      >
-                        <div className="alert-list">
-                          <InfoAlert
-                            title="1. Copie o link"
-                            text="No Discord, use Copiar link da mensagem na comprovação enviada."
-                            badge="LINK"
-                          />
-                          <InfoAlert
-                            title="2. Selecione o integrante"
-                            text="Escolha prisão ou acompanhamento e informe a quantidade."
-                            badge="RÁPIDO"
-                          />
-                          <InfoAlert
-                            title="3. Envie para análise"
-                            text="A supervisão aprova ou rejeita. Somente aprovados entram nas metas."
-                            badge="APROVA"
-                          />
-                          <InfoAlert
-                            title="Proteção contra duplicidade"
-                            text="O mesmo link do Discord não pode ser usado duas vezes."
-                            badge="SEGURO"
-                          />
-                        </div>
-                      </Card>
-                    </div>
-                  ) : (
-                    <div className="margin-top">
-                      <Card
-                        title="Lançamento em lote"
-                        subtitle="Até 50 comprovações em uma única confirmação"
-                      >
-                        <div className="batch-summary">
-                          <div>
-                            <span>Linhas preenchidas</span>
-                            <strong>{activeDiscordBatchRows.length}</strong>
-                          </div>
-                          <div>
-                            <span>Prisões</span>
-                            <strong>{discordBatchValidation.prisonTotal}</strong>
-                          </div>
-                          <div>
-                            <span>Acompanhamentos</span>
-                            <strong>{discordBatchValidation.pursuitTotal}</strong>
-                          </div>
-                          <div>
-                            <span>Validação</span>
-                            <strong
-                              className={
-                                discordBatchValidation.hasErrors
-                                  ? "summary-bad"
-                                  : "summary-good"
-                              }
-                            >
-                              {activeDiscordBatchRows.length === 0
-                                ? "AGUARDANDO"
-                                : discordBatchValidation.hasErrors
-                                  ? "CORRIGIR"
-                                  : "PRONTO"}
-                            </strong>
-                          </div>
-                        </div>
-
-                        <div className="batch-table-wrap">
-                          <table className="batch-table">
-                            <thead>
-                              <tr>
-                                <th>#</th>
-                                <th>Integrante</th>
-                                <th>Tipo</th>
-                                <th>Qtd.</th>
-                                <th>Link do Discord</th>
-                                <th>Observação</th>
-                                <th>Status</th>
-                                <th />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {discordBatchRows.map((row, index) => {
-                                const validation =
-                                  discordBatchValidation.rows.find(
-                                    (item) => item.rowId === row.id
-                                  );
-                                const isActive = activeDiscordBatchRows.some(
-                                  (item) => item.id === row.id
-                                );
-                                const hasError =
-                                  Boolean(validation?.errors.length);
-
-                                return (
-                                  <tr
-                                    key={row.id}
-                                    className={hasError ? "batch-row-error" : ""}
-                                  >
-                                    <td className="batch-index">{index + 1}</td>
-                                    <td>
-                                      <select
-                                        value={row.officerId}
-                                        onChange={(event) =>
-                                          updateDiscordBatchRow(
-                                            row.id,
-                                            "officerId",
-                                            event.target.value
-                                          )
-                                        }
-                                      >
-                                        <option value="">Selecione</option>
-                                        {activeOfficers.map((officer) => (
-                                          <option
-                                            key={officer.id}
-                                            value={officer.id}
-                                          >
-                                            {officer.registration} — {officer.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                    <td>
-                                      <select
-                                        value={row.activityType}
-                                        onChange={(event) =>
-                                          updateDiscordBatchRow(
-                                            row.id,
-                                            "activityType",
-                                            event.target.value as DiscordActivityType
-                                          )
-                                        }
-                                      >
-                                        <option>Prisão</option>
-                                        <option>Acompanhamento</option>
-                                      </select>
-                                    </td>
-                                    <td>
-                                      <input
-                                        className="batch-quantity"
-                                        type="number"
-                                        min={1}
-                                        step={1}
-                                        value={row.quantity}
-                                        onChange={(event) =>
-                                          updateDiscordBatchRow(
-                                            row.id,
-                                            "quantity",
-                                            Number(event.target.value)
-                                          )
-                                        }
-                                      />
-                                    </td>
-                                    <td>
-                                      <input
-                                        type="url"
-                                        value={row.discordUrl}
-                                        placeholder="https://discord.com/channels/..."
-                                        onChange={(event) =>
-                                          updateDiscordBatchRow(
-                                            row.id,
-                                            "discordUrl",
-                                            event.target.value
-                                          )
-                                        }
-                                      />
-                                    </td>
-                                    <td>
-                                      <input
-                                        value={row.note}
-                                        placeholder="Opcional"
-                                        onChange={(event) =>
-                                          updateDiscordBatchRow(
-                                            row.id,
-                                            "note",
-                                            event.target.value
-                                          )
-                                        }
-                                      />
-                                    </td>
-                                    <td>
-                                      {!isActive ? (
-                                        <span className="badge">VAZIA</span>
-                                      ) : hasError ? (
-                                        <span
-                                          className="batch-error-text"
-                                          title={validation?.errors.join(" • ")}
-                                        >
-                                          {validation?.errors[0]}
-                                        </span>
-                                      ) : (
-                                        <span className="badge green">OK</span>
-                                      )}
-                                    </td>
-                                    <td>
-                                      <button
-                                        className="table-action danger"
-                                        type="button"
-                                        onClick={() =>
-                                          removeDiscordBatchRow(row.id)
-                                        }
-                                      >
-                                        Remover
-                                      </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        <div className="batch-actions">
-                          <button
-                            className="btn secondary"
-                            type="button"
-                            onClick={addDiscordBatchRow}
-                            disabled={discordBatchRows.length >= 50}
-                          >
-                            ＋ Adicionar linha
-                          </button>
-                          <button
-                            className="btn ghost"
-                            type="button"
-                            onClick={clearDiscordBatch}
-                          >
-                            Limpar lote
-                          </button>
-                          <button
-                            className="btn batch-save"
-                            type="button"
-                            onClick={handleSaveDiscordBatch}
-                            disabled={
-                              savingDiscordBatch ||
-                              activeDiscordBatchRows.length === 0 ||
-                              discordBatchValidation.hasErrors
-                            }
-                          >
-                            {savingDiscordBatch
-                              ? "Salvando lote..."
-                              : `Enviar todos (${activeDiscordBatchRows.length})`}
-                          </button>
-                        </div>
-
-                        {discordBatchValidation.hasErrors && (
-                          <div className="batch-help-error">
-                            Corrija os campos marcados. Nenhum registro será salvo
-                            até que todo o lote esteja válido.
-                          </div>
-                        )}
-                      </Card>
-                    </div>
-                  )}
-
-                  <div className="discord-history-filters margin-top">
-                    <div>
-                      <strong>Histórico da semana</strong>
-                      <span>Filtre as comprovações já salvas</span>
-                    </div>
-                    <select
-                      value={discordOfficerFilter}
-                      onChange={(event) =>
-                        setDiscordOfficerFilter(event.target.value)
-                      }
-                    >
-                      <option value="todos">Todos os integrantes</option>
-                      {activeOfficers.map((officer) => (
-                        <option key={officer.id} value={officer.id}>
-                          {officer.registration} — {officer.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={discordTypeFilter}
-                      onChange={(event) =>
-                        setDiscordTypeFilter(event.target.value)
-                      }
-                    >
-                      <option value="todos">Todos os tipos</option>
-                      <option value="Prisão">Prisão</option>
-                      <option value="Acompanhamento">Acompanhamento</option>
-                    </select>
-                    <select
-                      value={discordStatusFilter}
-                      onChange={(event) =>
-                        setDiscordStatusFilter(event.target.value)
-                      }
-                    >
-                      <option value="todos">Todos os status</option>
-                      <option value="Pendente">Pendente</option>
-                      <option value="Aprovado">Aprovado</option>
-                      <option value="Rejeitado">Rejeitado</option>
-                    </select>
-                    <input
-                      value={discordSearch}
-                      placeholder="Buscar nome, matrícula ou observação"
-                      onChange={(event) => setDiscordSearch(event.target.value)}
-                    />
-                    <button
-                      className="btn ghost"
-                      type="button"
-                      onClick={() => {
-                        setDiscordOfficerFilter("todos");
-                        setDiscordTypeFilter("todos");
-                        setDiscordStatusFilter("todos");
-                        setDiscordSearch("");
-                      }}
-                    >
-                      Limpar filtros
-                    </button>
-                  </div>
-
-                  <DiscordRecordsTable
-                    title="Histórico da semana"
-                    records={filteredDiscordRecords}
-                    officers={officers}
-                    members={members}
-                    onDelete={handleDeleteDiscordRecord}
-                    onReview={handleReviewDiscordRecord}
-                    canReview={canReview}
-                    isAdmin={isAdmin}
-                    totalInPeriod={discordPeriodRecords.length}
-                  />
-                </section>
-              )}
-
-              {screen === "supervisao" && (
-                <section className="page">
-                  <PageHeader
-                    title="Supervisão Semanal"
-                    description="Leitura simplificada com situação e próxima ação."
-                  >
-                    <Selectors
-                      month={month}
-                      week={week}
-                      onMonth={setMonth}
-                      onWeek={setWeek}
-                    />
-                  </PageHeader>
-
-                  <div className="card table-card">
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Integrante</th>
-                            <th>Cargo</th>
-                            <th>Prisões</th>
-                            <th>Acompanhamentos</th>
-                            <th>Progresso</th>
-                            <th>Situação</th>
-                            <th>Orientação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {metrics.map((officer) => (
-                            <tr key={officer.id}>
-                              <td>
-                                <strong>{officer.name}</strong>
-                                <br />
-                                <span className="muted small">
-                                  {officer.registration}
-                                </span>
-                              </td>
-                              <td>{officer.role}</td>
-                              <td>{officer.prisons}</td>
-                              <td>{officer.pursuits}</td>
-                              <td>
-                                <div className="progress">
-                                  <span
-                                    style={{
-                                      width: `${officer.progress * 100}%`
-                                    }}
-                                  />
-                                </div>
-                                <span className="small">
-                                  {Math.round(officer.progress * 100)}%
-                                </span>
-                              </td>
-                              <td>
-                                <Badge text={officer.situation} />
-                              </td>
-                              <td>{officer.guidance}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </section>
+                <OperationsModule
+                  records={discordRecords}
+                  officers={officers}
+                  month={month}
+                  week={week}
+                  onMonthChange={setMonth}
+                  onWeekChange={setWeek}
+                />
               )}
 
               {screen === "inteligencia" && (
@@ -2998,31 +3162,17 @@ export function GamApp() {
               )}
 
               {screen === "relatorio" && (
-                <section className="page report-page">
-                  <PageHeader
-                    title="Relatórios Profissionais"
-                    description="Relatórios semanais e mensais prontos para o comando."
-                  >
-                    <Selectors
-                      month={month}
-                      week={week}
-                      onMonth={setMonth}
-                      onWeek={setWeek}
-                      hideWeek={reportMode === "mensal"}
-                    />
-                  </PageHeader>
-
-                  <ReportCenter
-                    mode={reportMode}
-                    onMode={setReportMode}
-                    officers={activeOfficers}
-                    entries={entries}
-                    month={month}
-                    week={week}
-                    year={year}
-                    responsibleName={access.displayName}
-                  />
-                </section>
+                <ReportsModule
+                  metrics={metrics}
+                  officers={officers}
+                  entries={entries}
+                  discordRecords={discordRecords}
+                  year={year}
+                  month={month}
+                  week={week}
+                  onMonthChange={setMonth}
+                  onWeekChange={setWeek}
+                />
               )}
 
               {screen === "fechamento" && (
@@ -3052,48 +3202,23 @@ export function GamApp() {
               )}
 
               {screen === "auditoria" && canAudit && (
-                <section className="page">
-                  <PageHeader
-                    title="Auditoria e Segurança"
-                    description="Saiba quem realizou cada ação, quando aconteceu e o que foi alterado."
-                  />
-
-                  <AuditPanel
-                    logs={auditLogs}
-                    members={members}
-                    officers={officers}
-                    canBackup={isAdmin}
-                    onInspect={setSelectedAuditLog}
-                    onExport={handleExportAuditCsv}
-                    onBackup={handleBackup}
-                    onRefresh={() => void refreshAuditLogs()}
-                  />
-                </section>
+                <AuditModule
+                  logs={auditLogs}
+                  officers={officers}
+                  members={members}
+                />
               )}
 
               {screen === "acessos" && isAdmin && (
-                <section className="page">
-                  <PageHeader
-                    title="Acessos e Permissões"
-                    description="Vincule usuários existentes do Supabase e defina o nível de acesso."
-                  />
-
-                  <AccessManagement
-                    members={members}
-                    currentUserId={access.userId}
-                    onAdd={handleAddMember}
-                    onChange={(userId, changes) =>
-                      setMembers((current) =>
-                        current.map((member) =>
-                          member.userId === userId
-                            ? { ...member, ...changes }
-                            : member
-                        )
-                      )
-                    }
-                    onSave={handleUpdateMember}
-                  />
-                </section>
+                <AdminModule
+                  access={access}
+                  members={members}
+                  onAddMember={handleAddMemberInput}
+                  onUpdateMember={handleUpdateMember}
+                  onApproveRequest={handleApproveRequest}
+                  onRejectRequest={handleRejectRequest}
+                  onBackup={handleBackup}
+                />
               )}
             </>
           )}
@@ -3220,7 +3345,7 @@ function OfficerProfileModal({
         </div>
 
         <div className="officer-profile-period">
-          <span>{MONTHS[month - 1]} de {DEFAULT_YEAR}</span>
+          <span>{MONTHS[month - 1]} de {new Date().getFullYear()}</span>
           <strong>Semana {week}</strong>
         </div>
 
@@ -3347,7 +3472,7 @@ function Card({
 }: {
   title: string;
   subtitle?: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
@@ -5074,5 +5199,15 @@ function Closing({
         </Card>
       </div>
     </>
+  );
+}
+
+export function GamApp() {
+  return (
+    <PasswordRecoveryGate>
+      <GamAppProvider>
+        <GamAppContent />
+      </GamAppProvider>
+    </PasswordRecoveryGate>
   );
 }

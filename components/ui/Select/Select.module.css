@@ -1,0 +1,54 @@
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.label {
+  color: #c9d8e4;
+
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.select {
+  width: 100%;
+  min-height: 40px;
+
+  padding: 0 36px 0 11px;
+
+  color: #eef7ff;
+  background: #07192b;
+
+  border: 1px solid #1d4264;
+  border-radius: 9px;
+
+  outline: none;
+
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.select:focus {
+  border-color: #168cff;
+
+  box-shadow:
+    0 0 0 3px rgba(22, 140, 255, 0.12);
+}
+
+.invalid {
+  border-color: #ef3f50;
+}
+
+.helper,
+.error {
+  font-size: 0.7rem;
+}
+
+.helper {
+  color: #819bb4;
+}
+
+.error {
+  color: #ff909b;
+}

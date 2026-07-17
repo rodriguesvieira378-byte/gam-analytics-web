@@ -1,0 +1,30 @@
+.services {
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  background: rgba(4, 18, 31, 0.66);
+  border: 1px solid rgba(31, 58, 82, 0.72);
+  border-radius: 9px;
+}
+
+.item strong,
+.item small {
+  display: block;
+}
+
+.item strong {
+  font-size: 0.76rem;
+}
+
+.item small {
+  margin-top: 3px;
+  color: #819bb4;
+  font-size: 0.66rem;
+}

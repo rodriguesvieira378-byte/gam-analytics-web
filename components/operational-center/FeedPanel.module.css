@@ -1,0 +1,68 @@
+.feed {
+  display: grid;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 44px 10px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(31, 58, 82, 0.58);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.item time {
+  color: #819bb4;
+  font-size: 0.7rem;
+}
+
+.marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.approved {
+  color: #19dd7d;
+  background: currentColor;
+}
+
+.pending {
+  color: #ffae1f;
+  background: currentColor;
+}
+
+.rejected {
+  color: #ef3f50;
+  background: currentColor;
+}
+
+.content {
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.title strong {
+  font-size: 0.82rem;
+}
+
+.content small {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #8fa7be;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
