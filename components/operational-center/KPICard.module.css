@@ -1,6 +1,8 @@
 .card {
   display: grid;
+  grid-template-rows: auto auto auto auto;
   gap: 12px;
+  min-width: 0;
   min-height: 144px;
   padding: 16px;
 }
@@ -10,18 +12,25 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .title {
+  min-width: 0;
+  overflow: hidden;
   color: #aebfd1;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.045em;
+  line-height: 1.35;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .icon {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
   width: 38px;
   height: 38px;
@@ -32,9 +41,15 @@
 }
 
 .value {
+  min-width: 0;
+  overflow: hidden;
+  color: #f7fbff;
   font-size: clamp(2rem, 3vw, 2.45rem);
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   letter-spacing: -0.045em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .meta {
@@ -46,9 +61,37 @@
 }
 
 .meta small {
+  min-width: 0;
   overflow: hidden;
   color: #8da6bf;
   font-size: 0.72rem;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.progress {
+  min-width: 0;
+  margin-top: auto;
+}
+
+@media (max-width: 560px) {
+  .card {
+    min-height: 136px;
+    padding: 14px;
+  }
+
+  .value {
+    font-size: clamp(1.85rem, 10vw, 2.25rem);
+  }
+}
+
+@media (max-width: 420px) {
+  .meta {
+    align-items: flex-start;
+  }
+
+  .meta small {
+    white-space: normal;
+  }
 }

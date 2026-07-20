@@ -1,6 +1,7 @@
 .page {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .header {
@@ -8,6 +9,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  min-width: 0;
 }
 
 .periodFilters {
@@ -15,6 +17,7 @@
   grid-template-columns: 150px 130px;
   gap: 10px;
   flex: 0 0 auto;
+  min-width: 0;
 }
 
 .toolbar {
@@ -22,40 +25,56 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+  min-width: 0;
   padding: 12px;
 }
 
 .modeTabs {
   display: inline-flex;
   gap: 4px;
+  min-width: 0;
   padding: 4px;
-  background: rgba(4, 18, 31, 0.72);
   border: 1px solid rgba(31, 58, 82, 0.72);
   border-radius: 10px;
+  background: rgba(4, 18, 31, 0.72);
 }
 
 .modeTabs button {
+  min-width: 0;
   min-height: 34px;
   padding: 0 13px;
-  color: #8fa7be;
-  background: transparent;
   border: 0;
   border-radius: 7px;
+  background: transparent;
+  color: #8fa7be;
   cursor: pointer;
+  font: inherit;
   font-size: 0.72rem;
   font-weight: 800;
+  white-space: nowrap;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .modeTabs button.active {
-  color: #f6f9ff;
   background: rgba(22, 140, 255, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(22, 140, 255, 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(22, 140, 255, 0.38);
+  color: #f6f9ff;
+}
+
+.modeTabs button:focus-visible {
+  outline: 2px solid rgba(105, 185, 255, 0.78);
+  outline-offset: 2px;
 }
 
 .toolbarActions {
   display: flex;
   align-items: end;
   gap: 8px;
+  min-width: 0;
 }
 
 .toolbarActions label {
@@ -64,31 +83,43 @@
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .summaryCard {
   display: grid;
   gap: 8px;
+  min-width: 0;
   min-height: 116px;
   padding: 15px;
 }
 
 .summaryCard > span {
+  min-width: 0;
+  overflow: hidden;
   color: #9fb4c8;
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.04em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .summaryCard > strong {
+  min-width: 0;
+  overflow: hidden;
   font-size: 1.9rem;
   line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .summaryCard > small {
+  min-width: 0;
   overflow: hidden;
   color: #819bb4;
   font-size: 0.68rem;
@@ -98,13 +129,17 @@
 
 .mainGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  grid-template-columns:
+    minmax(0, 1.35fr)
+    minmax(300px, 0.65fr);
   gap: 12px;
+  min-width: 0;
 }
 
 .reportCard,
 .individualCard,
 .rankingCard {
+  min-width: 0;
   padding: 15px;
 }
 
@@ -114,7 +149,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
   margin-bottom: 14px;
+}
+
+.reportHeader > div,
+.rankingHeader > div {
+  min-width: 0;
 }
 
 .reportHeader span,
@@ -128,8 +169,10 @@
 
 .reportHeader h3,
 .rankingHeader h3 {
+  min-width: 0;
   margin: 4px 0 0;
   font-size: 0.98rem;
+  overflow-wrap: anywhere;
 }
 
 .reportHeader p,
@@ -138,20 +181,24 @@
   margin: 5px 0 0;
   color: #819bb4;
   font-size: 0.68rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .reportBody {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .reportMetric {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 13px;
-  background: rgba(4, 18, 31, 0.72);
   border: 1px solid rgba(31, 58, 82, 0.72);
   border-radius: 10px;
+  background: rgba(4, 18, 31, 0.72);
 }
 
 .reportMetric > span {
@@ -160,13 +207,19 @@
 }
 
 .reportMetric > strong {
+  min-width: 0;
+  overflow: hidden;
   font-size: 1.45rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reportList {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
   gap: 8px;
+  min-width: 0;
 }
 
 .reportList article {
@@ -174,47 +227,62 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
   padding: 11px;
-  background: rgba(4, 18, 31, 0.58);
   border: 1px solid rgba(31, 58, 82, 0.62);
   border-radius: 9px;
+  background: rgba(4, 18, 31, 0.58);
 }
 
 .reportList span {
+  min-width: 0;
   color: #9fb4c8;
   font-size: 0.68rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .reportList strong {
+  flex: 0 0 auto;
   font-size: 1rem;
 }
 
 .featuredOfficer {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
   gap: 8px;
+  min-width: 0;
 }
 
 .featuredOfficer > div {
+  min-width: 0;
   padding: 11px;
-  background: rgba(4, 18, 31, 0.66);
   border: 1px solid rgba(31, 58, 82, 0.7);
   border-radius: 9px;
+  background: rgba(4, 18, 31, 0.66);
 }
 
 .featuredOfficer span,
 .featuredOfficer strong {
   display: block;
+  min-width: 0;
 }
 
 .featuredOfficer span {
+  overflow: hidden;
   color: #819bb4;
   font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .featuredOfficer strong {
   margin-top: 5px;
+  overflow: hidden;
   font-size: 1.15rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .featuredOfficer > :last-child {
@@ -224,18 +292,22 @@
 }
 
 .tableWrap {
+  min-width: 0;
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .tableWrap table {
   width: 100%;
+  min-width: 820px;
   border-collapse: collapse;
 }
 
 .tableWrap th,
 .tableWrap td {
   padding: 11px 10px;
-  border-bottom: 1px solid rgba(31, 58, 82, 0.58);
+  border-bottom:
+    1px solid rgba(31, 58, 82, 0.58);
   text-align: left;
   white-space: nowrap;
 }
@@ -252,6 +324,10 @@
   font-size: 0.72rem;
 }
 
+.tableWrap tbody tr {
+  transition: background 160ms ease;
+}
+
 .tableWrap td strong,
 .tableWrap td small {
   display: block;
@@ -265,7 +341,9 @@
 
 .tableProgress {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) auto;
+  grid-template-columns:
+    minmax(90px, 1fr)
+    auto;
   align-items: center;
   gap: 8px;
   min-width: 150px;
@@ -276,9 +354,20 @@
   font-size: 0.66rem;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .modeTabs button:hover {
+    color: #d8e8f7;
+  }
+
+  .tableWrap tbody tr:hover {
+    background: rgba(22, 140, 255, 0.035);
+  }
+}
+
 @media (max-width: 1100px) {
   .summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
   }
 
   .mainGrid {
@@ -301,8 +390,8 @@
   }
 
   .periodFilters {
-    width: 100%;
     grid-template-columns: 1fr 1fr;
+    width: 100%;
   }
 
   .toolbarActions {
@@ -323,8 +412,45 @@
     grid-template-columns: 1fr;
   }
 
+  .toolbar {
+    padding: 10px;
+  }
+
   .modeTabs {
     display: grid;
     grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .modeTabs button {
+    width: 100%;
+  }
+
+  .summaryCard {
+    min-height: 104px;
+  }
+
+  .reportHeader,
+  .rankingHeader {
+    flex-wrap: wrap;
+  }
+
+  .featuredOfficer > :last-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .reportCard,
+  .individualCard,
+  .rankingCard {
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modeTabs button,
+  .tableWrap tbody tr {
+    transition: none;
   }
 }

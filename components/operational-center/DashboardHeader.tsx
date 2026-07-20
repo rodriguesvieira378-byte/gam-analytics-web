@@ -1,5 +1,7 @@
 "use client";
 
+import type { ChangeEvent } from "react";
+
 import { MONTHS, WEEKS } from "@/lib/constants";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Select } from "@/components/ui/Select";
@@ -24,14 +26,45 @@ const weekOptions = WEEKS.map((value) => ({
   label: `Semana ${value}`
 }));
 
+function parseSelectNumber(
+  event: ChangeEvent<HTMLSelectElement>
+) {
+  const value = Number(event.target.value);
+
+  return Number.isFinite(value) ? value : 0;
+}
+
 export function DashboardHeader({
   month,
   week,
   onMonthChange,
   onWeekChange
 }: DashboardHeaderProps) {
+  function handleMonthChange(
+    event: ChangeEvent<HTMLSelectElement>
+  ) {
+    const nextMonth = parseSelectNumber(event);
+
+    if (nextMonth > 0) {
+      onMonthChange(nextMonth);
+    }
+  }
+
+  function handleWeekChange(
+    event: ChangeEvent<HTMLSelectElement>
+  ) {
+    const nextWeek = parseSelectNumber(event);
+
+    if (nextWeek > 0) {
+      onWeekChange(nextWeek);
+    }
+  }
+
   return (
-    <header className={styles.header}>
+    <header
+      className={styles.header}
+      aria-label="Cabeçalho do centro operacional"
+    >
       <SectionTitle
         eyebrow="Centro de comando"
         title="Centro Operacional G.A.M."
@@ -40,7 +73,10 @@ export function DashboardHeader({
       />
 
       <div className={styles.right}>
-        <div className={styles.status}>
+        <div
+          className={styles.status}
+          aria-label="Status do sistema"
+        >
           <StatusDot
             status="online"
             size="sm"
@@ -48,23 +84,22 @@ export function DashboardHeader({
           />
         </div>
 
-        <div className={styles.filters}>
+        <div
+          className={styles.filters}
+          aria-label="Filtros do período"
+        >
           <Select
             aria-label="Selecionar mês"
             value={month}
             options={monthOptions}
-            onChange={(event) =>
-              onMonthChange(Number(event.target.value))
-            }
+            onChange={handleMonthChange}
           />
 
           <Select
             aria-label="Selecionar semana"
             value={week}
             options={weekOptions}
-            onChange={(event) =>
-              onWeekChange(Number(event.target.value))
-            }
+            onChange={handleWeekChange}
           />
         </div>
       </div>

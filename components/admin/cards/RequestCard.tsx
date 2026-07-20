@@ -1,33 +1,50 @@
 "use client";
 
 import type { GamMember } from "@/lib/types";
+
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
 import styles from "../AdminModule.module.css";
 
-interface RequestCardProps {
+export interface RequestCardProps {
   member: GamMember;
   onApprove: (member: GamMember) => void;
   onReject: (member: GamMember) => void;
 }
 
-function statusTone(status: GamMember["approvalStatus"]) {
-  if (status === "Aprovado") return "green";
-  if (status === "Rejeitado") return "red";
+const DATE_TIME_FORMATTER =
+  new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  });
+
+function getStatusTone(
+  status: GamMember["approvalStatus"]
+) {
+  if (status === "Aprovado") {
+    return "green";
+  }
+
+  if (status === "Rejeitado") {
+    return "red";
+  }
+
   return "yellow";
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "Data não informada";
+function formatDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "Data não informada";
+  }
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
 
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(date);
+  return Number.isNaN(date.getTime())
+    ? value
+    : DATE_TIME_FORMATTER.format(date);
 }
 
 export function RequestCard({
@@ -35,20 +52,35 @@ export function RequestCard({
   onApprove,
   onReject
 }: RequestCardProps) {
-  const pending = member.approvalStatus === "Pendente";
+  const displayName =
+    member.displayName?.trim() ||
+    "Usuário sem nome";
+
+  const email =
+    member.email?.trim() ||
+    "E-mail não informado";
+
+  const isPending =
+    member.approvalStatus === "Pendente";
+
+  const isApproved =
+    member.approvalStatus === "Aprovado";
+
+  const isRejected =
+    member.approvalStatus === "Rejeitado";
 
   return (
     <article className={styles.requestCard}>
       <div className={styles.requestIdentity}>
         <div>
-          <strong>
-            {member.displayName || "Usuário sem nome"}
-          </strong>
-          <small>{member.email}</small>
+          <strong>{displayName}</strong>
+          <small>{email}</small>
         </div>
 
         <Badge
-          tone={statusTone(member.approvalStatus)}
+          tone={getStatusTone(
+            member.approvalStatus
+          )}
           size="sm"
         >
           {member.approvalStatus}
@@ -58,7 +90,9 @@ export function RequestCard({
       <div className={styles.requestMeta}>
         <div>
           <span>Solicitado em</span>
-          <strong>{formatDate(member.requestedAt)}</strong>
+          <strong>
+            {formatDate(member.requestedAt)}
+          </strong>
         </div>
 
         <div>
@@ -66,24 +100,27 @@ export function RequestCard({
           <strong>{member.role}</strong>
         </div>
 
-        {member.approvalStatus === "Aprovado" && (
+        {isApproved ? (
           <div>
             <span>Aprovado em</span>
-            <strong>{formatDate(member.approvedAt)}</strong>
+            <strong>
+              {formatDate(member.approvedAt)}
+            </strong>
           </div>
-        )}
+        ) : null}
 
-        {member.approvalStatus === "Rejeitado" && (
+        {isRejected ? (
           <div>
             <span>Motivo</span>
             <strong>
-              {member.rejectionReason || "Não informado"}
+              {member.rejectionReason?.trim() ||
+                "Não informado"}
             </strong>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {pending && (
+      {isPending ? (
         <div className={styles.requestActions}>
           <Button
             size="sm"
@@ -100,7 +137,7 @@ export function RequestCard({
             Rejeitar
           </Button>
         </div>
-      )}
+      ) : null}
     </article>
   );
 }

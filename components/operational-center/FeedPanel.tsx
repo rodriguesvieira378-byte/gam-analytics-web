@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import type { DiscordRecord, Officer } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -18,32 +20,63 @@ function statusTone(status: DiscordRecord["status"]) {
   return "yellow";
 }
 
+function statusClass(status: DiscordRecord["status"]) {
+  if (status === "Aprovado") return styles.approved;
+  if (status === "Rejeitado") return styles.rejected;
+  return styles.pending;
+}
+
+function parseDate(value?: string | null) {
+  if (!value) return 0;
+
+  const timestamp = new Date(value).getTime();
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 function formatTime(value?: string | null) {
-  if (!value) return "—";
+  const timestamp = parseDate(value);
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
+  if (timestamp === 0) return "—";
 
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit"
-  }).format(date);
+  }).format(timestamp);
+}
+
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat("pt-BR").format(
+    Number.isFinite(value) ? value : 0
+  );
 }
 
 export function FeedPanel({
   records,
   officers
 }: FeedPanelProps) {
-  const latestRecords = [...records]
-    .sort((a, b) =>
-      String(b.createdAt ?? "").localeCompare(
-        String(a.createdAt ?? "")
-      )
-    )
-    .slice(0, 6);
+  const officersById = useMemo(
+    () =>
+      new Map(
+        officers.map((officer) => [
+          officer.id,
+          officer
+        ])
+      ),
+    [officers]
+  );
+
+  const latestRecords = useMemo(
+    () =>
+      [...records]
+        .sort(
+          (first, second) =>
+            parseDate(second.createdAt) -
+            parseDate(first.createdAt)
+        )
+        .slice(0, 6),
+    [records]
+  );
 
   return (
     <Panel
@@ -60,30 +93,46 @@ export function FeedPanel({
           description="Os registros aprovados e pendentes aparecerão aqui."
         />
       ) : (
-        <div className={styles.feed}>
+        <div
+          className={styles.feed}
+          aria-label="Operações recentes da G.A.M."
+        >
           {latestRecords.map((record) => {
-            const officer = officers.find(
-              (item) => item.id === record.officerId
+            const officer = officersById.get(
+              record.officerId
             );
+
+            const validCreatedAt =
+              parseDate(record.createdAt) > 0;
 
             return (
               <article
                 className={styles.item}
                 key={record.id}
               >
-                <time>
+                <time
+                  dateTime={
+                    validCreatedAt
+                      ? record.createdAt ?? undefined
+                      : undefined
+                  }
+                  title={
+                    validCreatedAt
+                      ? new Date(
+                          record.createdAt as string
+                        ).toLocaleString("pt-BR")
+                      : undefined
+                  }
+                >
                   {formatTime(record.createdAt)}
                 </time>
 
                 <span
                   className={[
                     styles.marker,
-                    record.status === "Aprovado"
-                      ? styles.approved
-                      : record.status === "Rejeitado"
-                        ? styles.rejected
-                        : styles.pending
+                    statusClass(record.status)
                   ].join(" ")}
+                  aria-hidden="true"
                 />
 
                 <div className={styles.content}>
@@ -99,8 +148,9 @@ export function FeedPanel({
                   </div>
 
                   <small>
-                    {officer?.name ?? "Integrante"} • Quantidade{" "}
-                    {record.quantity}
+                    {officer?.name ?? "Integrante não identificado"}
+                    {" • "}
+                    Quantidade {formatQuantity(record.quantity)}
                   </small>
                 </div>
               </article>

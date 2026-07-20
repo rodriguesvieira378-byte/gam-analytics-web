@@ -13,6 +13,7 @@ import type {
   MonthClosure,
   NotificationRead,
   Officer,
+  OfficerGarrison,
   OfficerRole,
   OfficerStatus,
   UserAccess,
@@ -140,6 +141,7 @@ function officerFromRow(row: Record<string, unknown>): Officer {
     registration: String(row.registration ?? ""),
     name: String(row.name ?? ""),
     role: String(row.role) as OfficerRole,
+    garrison: String(row.garrison ?? "Militar") as OfficerGarrison,
     status: String(row.status) as OfficerStatus,
     prisonGoal: Number(row.prison_goal ?? 0),
     pursuitGoal: Number(row.pursuit_goal ?? 0),
@@ -168,7 +170,8 @@ function officerDataError(error: { code?: string; message?: string }) {
     error.code === "PGRST204" ||
     message.includes("photo_url") ||
     message.includes("photo_path") ||
-    message.includes("discord_url");
+    message.includes("discord_url") ||
+    message.includes("garrison");
 
   if (missingIdentityField) {
     return new Error(
@@ -900,7 +903,12 @@ export async function updateGamMember(input: {
 export async function loadOfficers(): Promise<Officer[]> {
   if (isDemoMode) {
     const stored = readLocal<Officer[]>(KEYS.officers, []);
-    if (stored.length > 0) return stored;
+    if (stored.length > 0) {
+      return stored.map((officer) => ({
+        ...officer,
+        garrison: officer.garrison ?? "Militar"
+      }));
+    }
     writeLocal(KEYS.officers, INITIAL_OFFICERS);
     return INITIAL_OFFICERS;
   }
@@ -908,7 +916,7 @@ export async function loadOfficers(): Promise<Officer[]> {
   const { data, error } = await getSupabaseClient()
     .from("officers")
     .select(
-      "id, registration, name, role, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
+      "id, registration, name, role, garrison, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
     )
     .order("registration");
 
@@ -1005,6 +1013,7 @@ export async function saveOfficer(officer: Officer): Promise<Officer> {
     id: officer.id || (isDemoMode ? createId("officer") : ""),
     registration: officer.registration.trim(),
     name: officer.name.trim(),
+    garrison: officer.garrison ?? "Militar",
     discordUrl: officer.discordUrl?.trim() || undefined,
     prisonGoal: officer.role === "Oficial GAM" ? 4 : 6,
     pursuitGoal: officer.role === "Oficial GAM" ? 6 : 12
@@ -1042,6 +1051,7 @@ export async function saveOfficer(officer: Officer): Promise<Officer> {
     registration: normalized.registration,
     name: normalized.name,
     role: normalized.role,
+    garrison: normalized.garrison,
     status: normalized.status,
     prison_goal: normalized.prisonGoal,
     pursuit_goal: normalized.pursuitGoal,
@@ -1060,7 +1070,7 @@ export async function saveOfficer(officer: Officer): Promise<Officer> {
 
   const { data, error } = await query
     .select(
-      "id, registration, name, role, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
+      "id, registration, name, role, garrison, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
     )
     .single();
 
@@ -1112,7 +1122,7 @@ export async function uploadOfficerPhoto(
     .update({ photo_path: path, photo_url: null })
     .eq("id", officer.id)
     .select(
-      "id, registration, name, role, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
+      "id, registration, name, role, garrison, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
     )
     .single();
 
@@ -1148,7 +1158,7 @@ export async function removeOfficerPhoto(officer: Officer): Promise<Officer> {
     .update({ photo_path: null, photo_url: null })
     .eq("id", officer.id)
     .select(
-      "id, registration, name, role, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
+      "id, registration, name, role, garrison, status, prison_goal, pursuit_goal, photo_url, photo_path, discord_url"
     )
     .single();
 

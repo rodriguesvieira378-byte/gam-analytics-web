@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+
 import type {
   AuditLog,
   GamMember,
   Officer
 } from "@/lib/types";
+
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -35,14 +37,32 @@ export interface AuditModuleProps {
   members: GamMember[];
 }
 
+const DATE_TIME_FORMATTER =
+  new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  });
+
+function normalizeText(value?: string | null) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function readValue(
   data: Record<string, unknown> | null,
   ...keys: string[]
 ) {
-  if (!data) return undefined;
+  if (!data) {
+    return undefined;
+  }
 
   for (const key of keys) {
-    if (key in data) return data[key];
+    if (key in data) {
+      return data[key];
+    }
   }
 
   return undefined;
@@ -100,8 +120,13 @@ function actionLabel(log: AuditLog) {
       readValue(log.newData, "active")
     );
 
-    if (oldActive && !newActive) return "Desativou";
-    if (!oldActive && newActive) return "Reativou";
+    if (oldActive && !newActive) {
+      return "Desativou";
+    }
+
+    if (!oldActive && newActive) {
+      return "Reativou";
+    }
   }
 
   if (log.entity === "monthly_closures") {
@@ -110,9 +135,17 @@ function actionLabel(log: AuditLog) {
       : "Atualizou fechamento";
   }
 
-  if (log.action === "INSERT") return "Criou";
-  if (log.action === "UPDATE") return "Alterou";
-  if (log.action === "DELETE") return "Excluiu";
+  if (log.action === "INSERT") {
+    return "Criou";
+  }
+
+  if (log.action === "UPDATE") {
+    return "Alterou";
+  }
+
+  if (log.action === "DELETE") {
+    return "Excluiu";
+  }
 
   return log.action;
 }
@@ -121,15 +154,22 @@ function actionTone(log: AuditLog) {
   const label = actionLabel(log);
 
   if (
-    ["Criou", "Aprovou", "Reativou", "Fechou mês"].includes(
-      label
-    )
+    [
+      "Criou",
+      "Aprovou",
+      "Reativou",
+      "Fechou mês"
+    ].includes(label)
   ) {
     return "green";
   }
 
   if (
-    ["Excluiu", "Rejeitou", "Desativou"].includes(label)
+    [
+      "Excluiu",
+      "Rejeitou",
+      "Desativou"
+    ].includes(label)
   ) {
     return "red";
   }
@@ -137,26 +177,27 @@ function actionTone(log: AuditLog) {
   return "yellow";
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value || "—";
+function formatDate(value?: string | null) {
+  if (!value) {
+    return "—";
   }
 
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(date);
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? value
+    : DATE_TIME_FORMATTER.format(date);
 }
 
-function targetLabel(
+function getTargetLabel(
   log: AuditLog,
-  officers: Officer[]
+  officerMap: Map<string, Officer>
 ) {
   const data = log.newData ?? log.oldData;
 
-  if (!data) return log.entityId;
+  if (!data) {
+    return log.entityId;
+  }
 
   if (log.entity === "officers") {
     const registration = readValue(
@@ -167,7 +208,9 @@ function targetLabel(
     const name = readValue(data, "name");
 
     return (
-      [registration, name].filter(Boolean).join(" — ") ||
+      [registration, name]
+        .filter(Boolean)
+        .join(" — ") ||
       log.entityId
     );
   }
@@ -177,12 +220,14 @@ function targetLabel(
     log.entity === "discord_records"
   ) {
     const officerId = String(
-      readValue(data, "officer_id", "officerId") ?? ""
+      readValue(
+        data,
+        "officer_id",
+        "officerId"
+      ) ?? ""
     );
 
-    const officer = officers.find(
-      (item) => item.id === officerId
-    );
+    const officer = officerMap.get(officerId);
 
     const week = readValue(data, "week");
     const month = readValue(data, "month");
@@ -194,7 +239,10 @@ function targetLabel(
         ? `${month}/${year}`
         : "";
 
-    return [officer?.name ?? "Integrante", period]
+    return [
+      officer?.name ?? "Integrante",
+      period
+    ]
       .filter(Boolean)
       .join(" — ");
   }
@@ -222,7 +270,7 @@ function targetLabel(
   return log.entityId;
 }
 
-function summary(log: AuditLog) {
+function getSummary(log: AuditLog) {
   const data = log.newData ?? log.oldData;
 
   if (!data) {
@@ -230,16 +278,22 @@ function summary(log: AuditLog) {
   }
 
   if (log.entity === "weekly_entries") {
-    const prisons = readValue(data, "prisons") ?? 0;
-    const pursuits = readValue(data, "pursuits") ?? 0;
+    const prisons =
+      readValue(data, "prisons") ?? 0;
+
+    const pursuits =
+      readValue(data, "pursuits") ?? 0;
 
     return `${prisons} prisão(ões) • ${pursuits} acompanhamento(s)`;
   }
 
   if (log.entity === "discord_records") {
     const type =
-      readValue(data, "activity_type", "activityType") ??
-      "Atividade";
+      readValue(
+        data,
+        "activity_type",
+        "activityType"
+      ) ?? "Atividade";
 
     const quantity =
       readValue(data, "quantity") ?? 0;
@@ -251,17 +305,28 @@ function summary(log: AuditLog) {
   }
 
   if (log.entity === "officers") {
-    const role = readValue(data, "role") ?? "";
-    const status = readValue(data, "status") ?? "";
+    const role =
+      readValue(data, "role") ?? "";
 
-    return [role, status].filter(Boolean).join(" • ");
+    const status =
+      readValue(data, "status") ?? "";
+
+    return [role, status]
+      .filter(Boolean)
+      .join(" • ");
   }
 
   if (log.entity === "gam_members") {
-    const role = readValue(data, "role") ?? "";
-    const active = Boolean(readValue(data, "active"));
+    const role =
+      readValue(data, "role") ?? "";
 
-    return `${role} • ${active ? "Ativo" : "Inativo"}`;
+    const active = Boolean(
+      readValue(data, "active")
+    );
+
+    return `${role} • ${
+      active ? "Ativo" : "Inativo"
+    }`;
   }
 
   if (log.entity === "monthly_closures") {
@@ -283,6 +348,7 @@ function summary(log: AuditLog) {
 
 function csvCell(value: unknown) {
   const text = String(value ?? "");
+
   return `"${text.replaceAll('"', '""')}"`;
 }
 
@@ -297,12 +363,15 @@ function downloadFile(
 
   link.href = url;
   link.download = filename;
+  link.style.display = "none";
 
   document.body.appendChild(link);
   link.click();
   link.remove();
 
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 0);
 }
 
 export function AuditModule({
@@ -318,29 +387,85 @@ export function AuditModule({
   const [actorFilter, setActorFilter] =
     useState("todos");
 
+  const officerMap = useMemo(() => {
+    return new Map(
+      officers.map((officer) => [
+        officer.id,
+        officer
+      ])
+    );
+  }, [officers]);
+
+  const membersWithUserId = useMemo(
+    () =>
+      members.filter(
+        (
+          member
+        ): member is GamMember & {
+          userId: string;
+        } =>
+          typeof member.userId === "string" &&
+          member.userId.length > 0
+      ),
+    [members]
+  );
+
+  const memberMap = useMemo(() => {
+    const map = new Map<string, GamMember>();
+
+    for (const member of membersWithUserId) {
+      map.set(member.userId, member);
+    }
+
+    return map;
+  }, [membersWithUserId]);
+
+  const enrichedLogs = useMemo(() => {
+    return logs.map((log) => {
+      const actor =
+        typeof log.actorUserId === "string"
+          ? memberMap.get(log.actorUserId)
+          : undefined;
+
+      const action = actionLabel(log);
+      const module = moduleLabel(log.entity);
+      const target = getTargetLabel(
+        log,
+        officerMap
+      );
+      const description = getSummary(log);
+
+      return {
+        log,
+        actor,
+        action,
+        module,
+        target,
+        description,
+        timestamp:
+          new Date(log.createdAt).getTime() || 0,
+        searchableText: normalizeText(
+          [
+            action,
+            module,
+            target,
+            description,
+            actor?.displayName,
+            actor?.email
+          ].join(" ")
+        )
+      };
+    });
+  }, [logs, memberMap, officerMap]);
+
   const filteredLogs = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizeText(search);
 
-    return [...logs]
-      .filter((log) => {
-        const actor = members.find(
-          (member) =>
-            member.userId === log.actorUserId
-        );
-
+    return enrichedLogs
+      .filter(({ log, searchableText }) => {
         const matchesSearch =
           !term ||
-          actionLabel(log).toLowerCase().includes(term) ||
-          moduleLabel(log.entity)
-            .toLowerCase()
-            .includes(term) ||
-          targetLabel(log, officers)
-            .toLowerCase()
-            .includes(term) ||
-          summary(log).toLowerCase().includes(term) ||
-          actor?.displayName
-            .toLowerCase()
-            .includes(term);
+          searchableText.includes(term);
 
         const matchesModule =
           moduleFilter === "todos" ||
@@ -361,36 +486,49 @@ export function AuditModule({
           matchesActor
         );
       })
-      .sort((a, b) =>
-        String(b.createdAt).localeCompare(
-          String(a.createdAt)
-        )
+      .sort(
+        (a, b) =>
+          b.timestamp - a.timestamp
       );
   }, [
     actionFilter,
     actorFilter,
-    logs,
-    members,
+    enrichedLogs,
     moduleFilter,
-    officers,
     search
   ]);
 
-  const createdCount = logs.filter(
-    (log) => log.action === "INSERT"
-  ).length;
+  const summaryCounts = useMemo(() => {
+    return logs.reduce(
+      (counts, log) => {
+        if (log.action === "INSERT") {
+          counts.created += 1;
+        }
 
-  const updatedCount = logs.filter(
-    (log) => log.action === "UPDATE"
-  ).length;
+        if (log.action === "UPDATE") {
+          counts.updated += 1;
+        }
 
-  const deletedCount = logs.filter(
-    (log) => log.action === "DELETE"
-  ).length;
+        if (log.action === "DELETE") {
+          counts.deleted += 1;
+        }
 
-  const discordCount = logs.filter(
-    (log) => log.entity === "discord_records"
-  ).length;
+        if (
+          log.entity === "discord_records"
+        ) {
+          counts.discord += 1;
+        }
+
+        return counts;
+      },
+      {
+        created: 0,
+        updated: 0,
+        deleted: 0,
+        discord: 0
+      }
+    );
+  }, [logs]);
 
   function handleExportCsv() {
     const header = [
@@ -403,29 +541,34 @@ export function AuditModule({
       "ID"
     ];
 
-    const rows = filteredLogs.map((log) => {
-      const actor = members.find(
-        (member) =>
-          member.userId === log.actorUserId
-      );
-
-      return [
+    const rows = filteredLogs.map(
+      ({
+        log,
+        actor,
+        action,
+        module,
+        target,
+        description
+      }) => [
         formatDate(log.createdAt),
         actor?.displayName ??
           "Sistema / usuário removido",
-        actionLabel(log),
-        moduleLabel(log.entity),
-        targetLabel(log, officers),
-        summary(log),
+        action,
+        module,
+        target,
+        description,
         log.entityId
-      ];
-    });
+      ]
+    );
 
     const csv = [header, ...rows]
-      .map((row) => row.map(csvCell).join(";"))
+      .map((row) =>
+        row.map(csvCell).join(";")
+      )
       .join("\n");
 
-    const date = new Date().toISOString().slice(0, 10);
+    const date =
+      new Date().toISOString().slice(0, 10);
 
     downloadFile(
       `gam-auditoria-${date}.csv`,
@@ -443,34 +586,68 @@ export function AuditModule({
           description="Histórico de alterações, aprovações, exclusões e ações administrativas."
         />
 
-        <Button onClick={handleExportCsv}>
+        <Button
+          onClick={handleExportCsv}
+          disabled={filteredLogs.length === 0}
+        >
           Exportar CSV
         </Button>
       </div>
 
-      <section className={styles.summary}>
-        <Card tone="green" className={styles.summaryCard}>
+      <section
+        className={styles.summary}
+        aria-label="Resumo da auditoria"
+      >
+        <Card
+          tone="green"
+          className={styles.summaryCard}
+        >
           <span>Criações</span>
-          <strong>{createdCount}</strong>
-          <small>Novos registros no histórico</small>
+          <strong>
+            {summaryCounts.created}
+          </strong>
+          <small>
+            Novos registros no histórico
+          </small>
         </Card>
 
-        <Card tone="yellow" className={styles.summaryCard}>
+        <Card
+          tone="yellow"
+          className={styles.summaryCard}
+        >
           <span>Alterações</span>
-          <strong>{updatedCount}</strong>
-          <small>Atualizações registradas</small>
+          <strong>
+            {summaryCounts.updated}
+          </strong>
+          <small>
+            Atualizações registradas
+          </small>
         </Card>
 
-        <Card tone="red" className={styles.summaryCard}>
+        <Card
+          tone="red"
+          className={styles.summaryCard}
+        >
           <span>Exclusões</span>
-          <strong>{deletedCount}</strong>
-          <small>Ações removidas do sistema</small>
+          <strong>
+            {summaryCounts.deleted}
+          </strong>
+          <small>
+            Ações removidas do sistema
+          </small>
         </Card>
 
-        <Card tone="blue" className={styles.summaryCard}>
+        <Card
+          tone="blue"
+          className={styles.summaryCard}
+        >
           <span>Eventos do Discord</span>
-          <strong>{discordCount}</strong>
-          <small>Aprovações e rejeições</small>
+          <strong>
+            {summaryCounts.discord}
+          </strong>
+          <small>
+            Aprovações e rejeições
+          </small>
         </Card>
       </section>
 
@@ -484,6 +661,7 @@ export function AuditModule({
                 setSearch(event.target.value)
               }
               placeholder="Usuário, módulo, ação ou alvo"
+              autoComplete="off"
             />
           </label>
 
@@ -491,8 +669,14 @@ export function AuditModule({
             label="Módulo"
             value={moduleFilter}
             options={[
-              { value: "todos", label: "Todos" },
-              { value: "officers", label: "Efetivo" },
+              {
+                value: "todos",
+                label: "Todos"
+              },
+              {
+                value: "officers",
+                label: "Efetivo"
+              },
               {
                 value: "weekly_entries",
                 label: "Lançamentos"
@@ -512,7 +696,8 @@ export function AuditModule({
             ]}
             onChange={(event) =>
               setModuleFilter(
-                event.target.value as ModuleFilter
+                event.target
+                  .value as ModuleFilter
               )
             }
           />
@@ -521,14 +706,27 @@ export function AuditModule({
             label="Ação"
             value={actionFilter}
             options={[
-              { value: "todas", label: "Todas" },
-              { value: "INSERT", label: "Criações" },
-              { value: "UPDATE", label: "Alterações" },
-              { value: "DELETE", label: "Exclusões" }
+              {
+                value: "todas",
+                label: "Todas"
+              },
+              {
+                value: "INSERT",
+                label: "Criações"
+              },
+              {
+                value: "UPDATE",
+                label: "Alterações"
+              },
+              {
+                value: "DELETE",
+                label: "Exclusões"
+              }
             ]}
             onChange={(event) =>
               setActionFilter(
-                event.target.value as ActionFilter
+                event.target
+                  .value as ActionFilter
               )
             }
           />
@@ -537,16 +735,23 @@ export function AuditModule({
             label="Responsável"
             value={actorFilter}
             options={[
-              { value: "todos", label: "Todos" },
-              ...members.map((member) => ({
-                value: member.userId,
-                label:
-                  member.displayName ||
-                  member.email
-              }))
+              {
+                value: "todos",
+                label: "Todos"
+              },
+              ...membersWithUserId.map(
+                (member) => ({
+                  value: member.userId,
+                  label:
+                    member.displayName ||
+                    member.email
+                })
+              )
             ]}
             onChange={(event) =>
-              setActorFilter(event.target.value)
+              setActorFilter(
+                event.target.value
+              )
             }
           />
         </div>
@@ -558,7 +763,8 @@ export function AuditModule({
             <span>Histórico completo</span>
             <h3>Eventos registrados</h3>
             <small>
-              {filteredLogs.length} de {logs.length} evento(s)
+              {filteredLogs.length} de{" "}
+              {logs.length} evento(s)
             </small>
           </div>
 
@@ -587,15 +793,21 @@ export function AuditModule({
               </thead>
 
               <tbody>
-                {filteredLogs.map((log) => {
-                  const actor = members.find(
-                    (member) =>
-                      member.userId === log.actorUserId
-                  );
-
-                  return (
+                {filteredLogs.map(
+                  ({
+                    log,
+                    actor,
+                    action,
+                    module,
+                    target,
+                    description
+                  }) => (
                     <tr key={log.id}>
-                      <td>{formatDate(log.createdAt)}</td>
+                      <td>
+                        {formatDate(
+                          log.createdAt
+                        )}
+                      </td>
 
                       <td>
                         <strong>
@@ -612,26 +824,29 @@ export function AuditModule({
                           tone={actionTone(log)}
                           size="sm"
                         >
-                          {actionLabel(log)}
+                          {action}
                         </Badge>
                       </td>
 
                       <td>
-                        <Badge tone="blue" size="sm">
-                          {moduleLabel(log.entity)}
+                        <Badge
+                          tone="blue"
+                          size="sm"
+                        >
+                          {module}
                         </Badge>
                       </td>
 
                       <td>
                         <strong>
-                          {targetLabel(log, officers)}
+                          {target}
                         </strong>
                       </td>
 
-                      <td>{summary(log)}</td>
+                      <td>{description}</td>
                     </tr>
-                  );
-                })}
+                  )
+                )}
               </tbody>
             </table>
           </div>

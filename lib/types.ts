@@ -1,9 +1,12 @@
 export type OfficerRole = "Oficial GAM" | "Estagiário";
 export type OfficerStatus = "Ativo" | "Inativo";
+export type OfficerGarrison = "Militar" | "Civil";
+
 export type DiscordActivityType = "Prisão" | "Acompanhamento";
 export type DiscordRecordStatus = "Pendente" | "Aprovado" | "Rejeitado";
 export type AppRole = "Administrador" | "Supervisor" | "Consulta";
 export type ApprovalStatus = "Pendente" | "Aprovado" | "Rejeitado";
+
 export type AccessEventType =
   | "LOGIN_SUCESSO"
   | "LOGIN_FALHA"
@@ -12,6 +15,7 @@ export type AccessEventType =
 
 export type AuditAction = "INSERT" | "UPDATE" | "DELETE" | string;
 export type NotificationSeverity = "info" | "success" | "warning" | "critical";
+
 export type NotificationCategory =
   | "aprovacao"
   | "registro"
@@ -115,6 +119,7 @@ export interface Officer {
   registration: string;
   name: string;
   role: OfficerRole;
+  garrison: OfficerGarrison;
   status: OfficerStatus;
   prisonGoal: number;
   pursuitGoal: number;

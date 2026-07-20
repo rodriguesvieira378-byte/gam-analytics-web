@@ -2,13 +2,14 @@ import type {
   AppRole,
   GamMember
 } from "@/lib/types";
+
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 
 import styles from "../AdminModule.module.css";
 
-interface UserCardProps {
+export interface UserCardProps {
   member: GamMember;
   onRoleChange: (
     member: GamMember,
@@ -19,9 +20,33 @@ interface UserCardProps {
   ) => Promise<void> | void;
 }
 
-function roleTone(role: AppRole) {
-  if (role === "Administrador") return "green";
-  if (role === "Supervisor") return "yellow";
+const ROLE_OPTIONS = [
+  {
+    value: "Consulta",
+    label: "Consulta"
+  },
+  {
+    value: "Supervisor",
+    label: "Supervisor"
+  },
+  {
+    value: "Administrador",
+    label: "Administrador"
+  }
+] satisfies Array<{
+  value: AppRole;
+  label: string;
+}>;
+
+function getRoleTone(role: AppRole) {
+  if (role === "Administrador") {
+    return "green";
+  }
+
+  if (role === "Supervisor") {
+    return "yellow";
+  }
+
   return "blue";
 }
 
@@ -30,35 +55,25 @@ export function UserCard({
   onRoleChange,
   onToggle
 }: UserCardProps) {
+  const displayName =
+    member.displayName?.trim() ||
+    "Usuário sem nome";
+
+  const email =
+    member.email?.trim() ||
+    "E-mail não informado";
+
   return (
-    <article
-      className={styles.member}
-      key={member.userId}
-    >
+    <article className={styles.member}>
       <div className={styles.identity}>
-        <strong>
-          {member.displayName || "Usuário sem nome"}
-        </strong>
-        <small>{member.email}</small>
+        <strong>{displayName}</strong>
+        <small>{email}</small>
       </div>
 
       <Select
-        aria-label={`Permissão de ${member.displayName}`}
+        aria-label={`Permissão de ${displayName}`}
         value={member.role}
-        options={[
-          {
-            value: "Consulta",
-            label: "Consulta"
-          },
-          {
-            value: "Supervisor",
-            label: "Supervisor"
-          },
-          {
-            value: "Administrador",
-            label: "Administrador"
-          }
-        ]}
+        options={ROLE_OPTIONS}
         onChange={(event) =>
           onRoleChange(
             member,
@@ -68,7 +83,7 @@ export function UserCard({
       />
 
       <Badge
-        tone={roleTone(member.role)}
+        tone={getRoleTone(member.role)}
         size="sm"
       >
         {member.role}

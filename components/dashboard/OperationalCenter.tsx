@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { MONTHS } from "@/lib/constants";
 import styles from "./OperationalCenter.module.css";
 
@@ -12,7 +11,6 @@ import type {
 } from "@/lib/types";
 
 interface OperationalCenterProps {
-  
   metrics: OfficerMetrics[];
   officers: Officer[];
   entries: WeeklyEntry[];
@@ -40,24 +38,60 @@ function formatTime(value?: string | null) {
   }).format(date);
 }
 
-function getOfficerName(
-  officerId: string,
-  officers: Officer[]
-) {
-  return (
-    officers.find((officer) => officer.id === officerId)?.name ??
-    "Integrante"
-  );
+function getOfficer(officerId: string, officers: Officer[]) {
+  return officers.find((officer) => officer.id === officerId);
+}
+
+function getOfficerName(officerId: string, officers: Officer[]) {
+  return getOfficer(officerId, officers)?.name ?? "Integrante";
 }
 
 function getOfficerRegistration(
   officerId: string,
   officers: Officer[]
 ) {
-  return (
-    officers.find((officer) => officer.id === officerId)
-      ?.registration ?? "—"
-  );
+  return getOfficer(officerId, officers)?.registration ?? "—";
+}
+
+function getOfficerGarrison(
+  officerId: string,
+  officers: Officer[]
+): Officer["garrison"] {
+  return getOfficer(officerId, officers)?.garrison ?? "Militar";
+}
+
+function getGarrisonClass(garrison: Officer["garrison"]) {
+  return [
+    styles["garrison-label"],
+    garrison === "Civil"
+      ? styles.civil
+      : styles.military
+  ].join(" ");
+}
+
+function getRankingClass(index: number) {
+  const baseClass = styles["ranking-premium-item"];
+
+  if (index === 0) {
+    return `${baseClass} ${styles["ranking-gold"]}`;
+  }
+
+  if (index === 1) {
+    return `${baseClass} ${styles["ranking-silver"]}`;
+  }
+
+  if (index === 2) {
+    return `${baseClass} ${styles["ranking-bronze"]}`;
+  }
+
+  return `${baseClass} ${styles["ranking-standard"]}`;
+}
+
+function getRankingLabel(index: number) {
+  if (index === 0) return "OURO";
+  if (index === 1) return "PRATA";
+  if (index === 2) return "BRONZE";
+  return `${index + 1}º`;
 }
 
 export function OperationalCenter({
@@ -76,9 +110,7 @@ export function OperationalCenter({
   onWeekChange
 }: OperationalCenterProps) {
   const periodRecords = discordRecords.filter(
-    (record) =>
-      record.month === month &&
-      record.week === week
+    (record) => record.month === month && record.week === week
   );
 
   const pendingCount = periodRecords.filter(
@@ -105,9 +137,7 @@ export function OperationalCenter({
 
   const recentEntries = entries
     .filter(
-      (entry) =>
-        entry.month === month &&
-        entry.week === week
+      (entry) => entry.month === month && entry.week === week
     )
     .slice()
     .reverse()
@@ -116,6 +146,22 @@ export function OperationalCenter({
   const rankedMetrics = [...metrics]
     .sort((a, b) => b.total - a.total)
     .slice(0, 6);
+
+  const inactiveCount = officers.filter(
+    (officer) => officer.status === "Inativo"
+  ).length;
+
+  const militaryCount = officers.filter(
+    (officer) =>
+      officer.status === "Ativo" &&
+      officer.garrison === "Militar"
+  ).length;
+
+  const civilCount = officers.filter(
+    (officer) =>
+      officer.status === "Ativo" &&
+      officer.garrison === "Civil"
+  ).length;
 
   const systemStatus =
     rejectedCount > 0
@@ -168,15 +214,19 @@ export function OperationalCenter({
 
       <div className="grid kpis operational-kpis">
         <article className="kpi-card">
-          <span>Prisões hoje</span>
+          <span>Prisões no período</span>
           <strong>{totalPrisons}</strong>
-          <small>▲ operação consolidada</small>
+          <small>
+            {MONTHS[month - 1]} • Semana {week}
+          </small>
         </article>
 
         <article className="kpi-card">
-          <span>Acompanhamentos hoje</span>
+          <span>Acompanhamentos no período</span>
           <strong>{totalPursuits}</strong>
-          <small>▲ operação consolidada</small>
+          <small>
+            {MONTHS[month - 1]} • Semana {week}
+          </small>
         </article>
 
         <article
@@ -187,7 +237,7 @@ export function OperationalCenter({
           <span>Fila do GAM Sync</span>
           <strong>{pendingCount}</strong>
           <small>
-            {approvedCount} processado(s) • {rejectedCount} rejeitado(s)
+            {approvedCount} aprovado(s) • {rejectedCount} rejeitado(s)
           </small>
         </article>
 
@@ -220,33 +270,44 @@ export function OperationalCenter({
                 Nenhuma operação sincronizada neste período.
               </div>
             ) : (
-              recentOperations.map((record) => (
-                <div className="activity" key={record.id}>
-                  <span
-                    className={`dot ${
-                      record.status === "Rejeitado"
-                        ? "danger"
-                        : record.status === "Pendente"
-                          ? "warning"
-                          : ""
-                    }`}
-                  />
+              recentOperations.map((record) => {
+                const garrison = getOfficerGarrison(
+                  record.officerId,
+                  officers
+                );
 
-                  <div>
-                    <strong>
-                      {getOfficerName(record.officerId, officers)}
-                    </strong>
-                    <small>
-                      {record.activityType} • Quantidade {record.quantity}
-                    </small>
-                  </div>
+                return (
+                  <div className="activity" key={record.id}>
+                    <span
+                      className={`dot ${
+                        record.status === "Rejeitado"
+                          ? "danger"
+                          : record.status === "Pendente"
+                            ? "warning"
+                            : ""
+                      }`}
+                    />
 
-                  <div className="activity-meta">
-                    <b>{formatTime(record.createdAt)}</b>
-                    <small>{record.status}</small>
+                    <div>
+                      <strong>
+                        {getOfficerName(record.officerId, officers)}
+                      </strong>
+                      <small>
+                        {record.activityType} • Quantidade {record.quantity}
+                        {" • "}
+                        <span className={getGarrisonClass(garrison)}>
+                          {garrison}
+                        </span>
+                      </small>
+                    </div>
+
+                    <div className="activity-meta">
+                      <b>{formatTime(record.createdAt)}</b>
+                      <small>{record.status}</small>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </article>
@@ -281,9 +342,7 @@ export function OperationalCenter({
                   <small>{status}</small>
                 </div>
 
-                <b>
-                  {status === "Online" ? "●" : "○"}
-                </b>
+                <b>{status === "Online" ? "●" : "○"}</b>
               </div>
             ))}
           </div>
@@ -291,33 +350,56 @@ export function OperationalCenter({
       </div>
 
       <div className="grid two margin-top">
-        <article className="card">
-          <header className="card-head">
+        <article className={`card ${styles["ranking-premium-card"]}`}>
+          <header className={`card-head ${styles["ranking-premium-header"]}`}>
             <div>
-              <span>PRODUTIVIDADE</span>
+              <span>RANKING PREMIUM</span>
               <h3>Destaques da semana</h3>
             </div>
             <small>{activeCount} ativos</small>
           </header>
 
-          <div className="activity-list">
-            {rankedMetrics.map((metric, index) => (
-              <div className="activity" key={metric.id}>
-                <span className="rank-position">
-                  {index + 1}
-                </span>
-
-                <div>
-                  <strong>{metric.name}</strong>
-                  <small>{metric.registration}</small>
-                </div>
-
-                <div className="activity-meta">
-                  <b>{metric.total}</b>
-                  <small>{metric.situation}</small>
-                </div>
+          <div className={styles["ranking-premium-list"]}>
+            {rankedMetrics.length === 0 ? (
+              <div className="empty">
+                Nenhuma produtividade registrada nesta semana.
               </div>
-            ))}
+            ) : (
+              rankedMetrics.map((metric, index) => {
+                const garrison = getOfficerGarrison(
+                  metric.id,
+                  officers
+                );
+
+                return (
+                  <div
+                    className={getRankingClass(index)}
+                    key={metric.id}
+                  >
+                    <div className={styles["ranking-premium-position"]}>
+                      <span>{index + 1}</span>
+                      <small>{getRankingLabel(index)}</small>
+                    </div>
+
+                    <div className={styles["ranking-premium-identity"]}>
+                      <strong>{metric.name}</strong>
+                      <small>
+                        {metric.registration}
+                        {" • "}
+                        <span className={getGarrisonClass(garrison)}>
+                          {garrison}
+                        </span>
+                      </small>
+                    </div>
+
+                    <div className={styles["ranking-premium-result"]}>
+                      <b>{metric.total}</b>
+                      <small>{metric.situation}</small>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </article>
 
@@ -333,8 +415,8 @@ export function OperationalCenter({
             <div className="activity">
               <span className="dot" />
               <div>
-                <strong>Em atividade</strong>
-                <small>Metas atingidas</small>
+                <strong>Metas atingidas</strong>
+                <small>Integrantes dentro da meta semanal</small>
               </div>
               <b>{metGoals}</b>
             </div>
@@ -349,10 +431,28 @@ export function OperationalCenter({
             </div>
 
             <div className="activity">
+              <span className={`dot ${styles["military-dot"]}`} />
+              <div>
+                <strong>Guarnição Militar</strong>
+                <small>Integrantes militares ativos</small>
+              </div>
+              <b>{militaryCount}</b>
+            </div>
+
+            <div className="activity">
+              <span className={`dot ${styles["civil-dot"]}`} />
+              <div>
+                <strong>Guarnição Civil</strong>
+                <small>Integrantes civis ativos</small>
+              </div>
+              <b>{civilCount}</b>
+            </div>
+
+            <div className="activity">
               <span className="dot danger" />
               <div>
-                <strong>Pendências</strong>
-                <small>Rejeitados ou com falha</small>
+                <strong>Pendências do Sync</strong>
+                <small>Registros rejeitados ou com falha</small>
               </div>
               <b>{rejectedCount}</b>
             </div>
@@ -363,13 +463,7 @@ export function OperationalCenter({
                 <strong>Fora de serviço</strong>
                 <small>Integrantes inativos</small>
               </div>
-              <b>
-                {
-                  officers.filter(
-                    (officer) => officer.status === "Inativo"
-                  ).length
-                }
-              </b>
+              <b>{inactiveCount}</b>
             </div>
           </div>
         </article>
@@ -390,32 +484,43 @@ export function OperationalCenter({
               Nenhum lançamento neste período.
             </div>
           ) : (
-            recentEntries.map((entry) => (
-              <div className="activity" key={entry.id}>
-                <span className="dot" />
+            recentEntries.map((entry) => {
+              const garrison = getOfficerGarrison(
+                entry.officerId,
+                officers
+              );
 
-                <div>
-                  <strong>
-                    {getOfficerName(entry.officerId, officers)}
-                  </strong>
-                  <small>
-                    {getOfficerRegistration(
-                      entry.officerId,
-                      officers
-                    )}
-                  </small>
-                </div>
+              return (
+                <div className="activity" key={entry.id}>
+                  <span className="dot" />
 
-                <div className="activity-meta">
-                  <b>
-                    {entry.prisons} P • {entry.pursuits} A
-                  </b>
-                  <small>
-                    {entry.prisons + entry.pursuits} atividade(s)
-                  </small>
+                  <div>
+                    <strong>
+                      {getOfficerName(entry.officerId, officers)}
+                    </strong>
+                    <small>
+                      {getOfficerRegistration(
+                        entry.officerId,
+                        officers
+                      )}
+                      {" • "}
+                      <span className={getGarrisonClass(garrison)}>
+                        {garrison}
+                      </span>
+                    </small>
+                  </div>
+
+                  <div className="activity-meta">
+                    <b>
+                      {entry.prisons} P • {entry.pursuits} A
+                    </b>
+                    <small>
+                      {entry.prisons + entry.pursuits} atividade(s)
+                    </small>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </article>

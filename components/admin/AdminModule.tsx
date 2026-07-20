@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+
 import type {
   AppRole,
   GamMember,
   UserAccess
 } from "@/lib/types";
+
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -34,7 +36,9 @@ export interface AdminModuleProps {
     displayName: string;
     role: AppRole;
   }) => Promise<void> | void;
-  onUpdateMember: (member: GamMember) => Promise<void> | void;
+  onUpdateMember: (
+    member: GamMember
+  ) => Promise<void> | void;
   onApproveRequest: (
     userId: string,
     role: AppRole
@@ -46,12 +50,32 @@ export interface AdminModuleProps {
   onBackup: () => void;
 }
 
-const ADMIN_TABS: Array<[AdminTab, string]> = [
-  ["usuarios", "Usuários"],
-  ["solicitacoes", "Solicitações"],
-  ["permissoes", "Permissões"],
-  ["sistema", "Sistema"],
-  ["integracoes", "Integrações"]
+interface AdminTabConfig {
+  key: AdminTab;
+  label: string;
+}
+
+const ADMIN_TABS: AdminTabConfig[] = [
+  {
+    key: "usuarios",
+    label: "Usuários"
+  },
+  {
+    key: "solicitacoes",
+    label: "Solicitações"
+  },
+  {
+    key: "permissoes",
+    label: "Permissões"
+  },
+  {
+    key: "sistema",
+    label: "Sistema"
+  },
+  {
+    key: "integracoes",
+    label: "Integrações"
+  }
 ];
 
 export function AdminModule({
@@ -63,26 +87,80 @@ export function AdminModule({
   onRejectRequest,
   onBackup
 }: AdminModuleProps) {
-  const [tab, setTab] = useState<AdminTab>("usuarios");
+  const [tab, setTab] =
+    useState<AdminTab>("usuarios");
 
   const summary = useMemo(() => {
-    const active = members.filter((member) => member.active).length;
+    return members.reduce(
+      (totals, member) => {
+        totals.total += 1;
 
-    return {
-      total: members.length,
-      active,
-      admins: members.filter(
-        (member) => member.role === "Administrador"
-      ).length,
-      supervisors: members.filter(
-        (member) => member.role === "Supervisor"
-      ).length,
-      consultations: members.filter(
-        (member) => member.role === "Consulta"
-      ).length,
-      inactive: members.length - active
-    };
+        if (member.active) {
+          totals.active += 1;
+        } else {
+          totals.inactive += 1;
+        }
+
+        if (
+          member.role === "Administrador"
+        ) {
+          totals.admins += 1;
+        }
+
+        if (member.role === "Supervisor") {
+          totals.supervisors += 1;
+        }
+
+        if (member.role === "Consulta") {
+          totals.consultations += 1;
+        }
+
+        return totals;
+      },
+      {
+        total: 0,
+        active: 0,
+        admins: 0,
+        supervisors: 0,
+        consultations: 0,
+        inactive: 0
+      }
+    );
   }, [members]);
+
+  function renderActiveTab() {
+    if (tab === "usuarios") {
+      return (
+        <UsersTab
+          members={members}
+          onAddMember={onAddMember}
+          onUpdateMember={onUpdateMember}
+        />
+      );
+    }
+
+    if (tab === "solicitacoes") {
+      return (
+        <RequestsTab
+          members={members}
+          onApprove={onApproveRequest}
+          onReject={onRejectRequest}
+        />
+      );
+    }
+
+    if (tab === "permissoes") {
+      return <PermissionsTab />;
+    }
+
+    if (tab === "sistema") {
+      return (
+        <SystemTab onBackup={onBackup} />
+      );
+    }
+
+    return <IntegrationsTab />;
+  }
 
   return (
     <section className={styles.page}>
@@ -98,7 +176,10 @@ export function AdminModule({
         </Badge>
       </div>
 
-      <section className={styles.summary}>
+      <section
+        className={styles.summary}
+        aria-label="Resumo administrativo"
+      >
         <SummaryCard
           tone="blue"
           label="Usuários"
@@ -128,7 +209,11 @@ export function AdminModule({
         />
 
         <SummaryCard
-          tone={summary.inactive > 0 ? "red" : "green"}
+          tone={
+            summary.inactive > 0
+              ? "red"
+              : "green"
+          }
           label="Inativos"
           value={summary.inactive}
           description="Sem acesso ao sistema"
@@ -136,49 +221,48 @@ export function AdminModule({
       </section>
 
       <Card className={styles.tabsCard}>
-        <div className={styles.tabs}>
-          {ADMIN_TABS.map(([key, label]) => (
-            <button
-              type="button"
-              key={key}
-              className={
-                tab === key ? styles.active : ""
-              }
-              onClick={() => setTab(key)}
-            >
-              {label}
-            </button>
-          ))}
+        <div
+          className={styles.tabs}
+          role="tablist"
+          aria-label="Seções administrativas"
+        >
+          {ADMIN_TABS.map(
+            ({ key, label }) => {
+              const isActive = tab === key;
+
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  key={key}
+                  aria-selected={isActive}
+                  aria-controls={`admin-panel-${key}`}
+                  className={
+                    isActive
+                      ? styles.active
+                      : ""
+                  }
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
+              );
+            }
+          )}
         </div>
       </Card>
 
-      {tab === "usuarios" && (
-        <UsersTab
-          members={members}
-          onAddMember={onAddMember}
-          onUpdateMember={onUpdateMember}
-        />
-      )}
-
-      {tab === "solicitacoes" && (
-        <RequestsTab
-          members={members}
-          onApprove={onApproveRequest}
-          onReject={onRejectRequest}
-        />
-      )}
-
-      {tab === "permissoes" && (
-        <PermissionsTab />
-      )}
-
-      {tab === "sistema" && (
-        <SystemTab onBackup={onBackup} />
-      )}
-
-      {tab === "integracoes" && (
-        <IntegrationsTab />
-      )}
+      <div
+        id={`admin-panel-${tab}`}
+        role="tabpanel"
+        aria-label={
+          ADMIN_TABS.find(
+            (item) => item.key === tab
+          )?.label
+        }
+      >
+        {renderActiveTab()}
+      </div>
     </section>
   );
 }

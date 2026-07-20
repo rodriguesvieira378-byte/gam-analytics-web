@@ -8,12 +8,8 @@ import type {
   WeeklyEntry
 } from "@/lib/types";
 
-import { ActivityTimeline } from "./ActivityTimeline";
 import { DashboardHeader } from "./DashboardHeader";
-import { FeedPanel } from "./FeedPanel";
 import { KPIGrid } from "./KPIGrid";
-import { OfficerRanking } from "./OfficerRanking";
-import { SystemHealth } from "./SystemHealth";
 
 import styles from "./OperationalCenterV2.module.css";
 
@@ -49,8 +45,6 @@ function formatTime(value?: string | null) {
 }
 
 export function OperationalCenterV2({
-  metrics,
-  officers,
   discordRecords,
   activeCount,
   totalPrisons,
@@ -95,9 +89,6 @@ export function OperationalCenterV2({
     [periodRecords]
   );
 
-  const latestSyncLabel =
-    formatTime(latestSync);
-
   return (
     <section className={styles.page}>
       <DashboardHeader
@@ -115,37 +106,16 @@ export function OperationalCenterV2({
         approvedCount={approvedCount}
         activeCount={activeCount}
         metGoals={metGoals}
-        latestSyncLabel={latestSyncLabel}
+        latestSyncLabel={formatTime(latestSync)}
       />
 
-      <section className={styles.modules}>
-        <div className={styles.feed}>
-          <FeedPanel
-            records={periodRecords}
-            officers={officers}
-          />
-        </div>
-
-        <div className={styles.ranking}>
-          <OfficerRanking
-            metrics={metrics}
-          />
-        </div>
-
-        <div className={styles.timeline}>
-          <ActivityTimeline
-            records={periodRecords}
-            officers={officers}
-          />
-        </div>
-
-        <div className={styles.health}>
-          <SystemHealth
-            pendingCount={pendingCount}
-            rejectedCount={rejectedCount}
-            latestSyncLabel={latestSyncLabel}
-          />
-        </div>
+      <section className={styles.nextStage}>
+        <span>Operational Center V2</span>
+        <strong>Topo operacional concluído</strong>
+        <p>
+          Feed, timeline, ranking e saúde do sistema entram
+          nas próximas entregas da Sprint 4.2.
+        </p>
       </section>
     </section>
   );

@@ -5,6 +5,8 @@ import type {
   GamSyncParsedReport
 } from "./types";
 
+const MAX_ACTIVITY_VALUE = 9999;
+
 const PURSUIT_LABELS = [
   "acompanhamento",
   "acompanhamentos",
@@ -20,13 +22,13 @@ const PRISON_LABELS = [
 ];
 
 const QRU_PATTERNS = [
-  /(?:^|\n)\s*qru\s*[:\-]\s*(.+?)(?=\n|$)/i,
-  /(?:^|\n)\s*ocorr[eê]ncia\s*[:\-]\s*(.+?)(?=\n|$)/i,
-  /(?:^|\n)\s*atividade\s*[:\-]\s*(.+?)(?=\n|$)/i
+  /(?:^|\n)\s*(?:[-•]\s*)?qru\s*[:\-–—]?\s*(.+?)(?=\n|$)/i,
+  /(?:^|\n)\s*(?:[-•]\s*)?ocorr[eê]ncia\s*[:\-–—]?\s*(.+?)(?=\n|$)/i,
+  /(?:^|\n)\s*(?:[-•]\s*)?atividade\s*[:\-–—]?\s*(.+?)(?=\n|$)/i
 ];
 
 const DATE_PATTERNS = [
-  /(?:^|\n)\s*(?:data|dia)\s*[:\-]\s*(\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?)/i,
+  /(?:^|\n)\s*(?:[-•]\s*)?(?:data|dia)\s*[:\-–—]?\s*(\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?)(?=\s|$)/i,
   /\b(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4})\b/
 ];
 
@@ -35,7 +37,9 @@ function normalizeContent(content: string) {
     .normalize("NFC")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
+    .replace(/\u00a0/g, " ")
     .replace(/[ \t]+/g, " ")
+    .replace(/[–—]/g, "-")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -52,14 +56,21 @@ function parseNonNegativeInteger(
 ) {
   if (!value) return null;
 
-  const parsed = Number(
-    value.replace(/[^\d]/g, "")
-  );
+  const digits = value.replace(/[^\d]/g, "");
 
-  return Number.isInteger(parsed) &&
-    parsed >= 0
-    ? parsed
-    : null;
+  if (!digits) return null;
+
+  const parsed = Number(digits);
+
+  if (
+    !Number.isSafeInteger(parsed) ||
+    parsed < 0 ||
+    parsed > MAX_ACTIVITY_VALUE
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
 function buildActivityPatterns(
@@ -68,21 +79,24 @@ function buildActivityPatterns(
   const joined =
     labels.map(escapeRegExp).join("|");
 
+  const prefix =
+    `(?:^|\\n)\\s*(?:[-•]\\s*)?(?:${joined})`;
+
   return [
     new RegExp(
-      `(?:${joined})[\\s\\S]{0,40}?meta\\s*[:\\-]?\\s*(\\d{1,4})\\s*\\/\\s*(\\d{1,4})`,
+      `${prefix}[\\s\\S]{0,36}?meta\\s*[:\\-]?\\s*(\\d{1,4})\\s*\\/\\s*(\\d{1,4})(?=\\s|$)`,
       "i"
     ),
     new RegExp(
-      `(?:${joined})\\s*[:\\-]?\\s*(\\d{1,4})\\s*\\/\\s*(\\d{1,4})`,
+      `${prefix}\\s*[:\\-]?\\s*(\\d{1,4})\\s*\\/\\s*(\\d{1,4})(?=\\s|$)`,
       "i"
     ),
     new RegExp(
-      `(\\d{1,4})\\s*\\/\\s*(\\d{1,4})\\s*(?:${joined})`,
+      `(?:^|\\n)\\s*(?:[-•]\\s*)?(\\d{1,4})\\s*\\/\\s*(\\d{1,4})\\s*(?:${joined})(?=\\s|$)`,
       "i"
     ),
     new RegExp(
-      `(?:${joined})\\s*[:\\-]?\\s*(\\d{1,4})(?!\\s*\\/)`,
+      `${prefix}\\s*[:\\-]?\\s*(\\d{1,4})(?!\\s*[\\/.-]\\s*\\d)(?=\\s|$)`,
       "i"
     )
   ];
@@ -122,19 +136,41 @@ function parseActivity(
   return null;
 }
 
+function sanitizeQru(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/^[:\-–—\s]+/, "")
+    .trim();
+}
+
 function parseQru(content: string) {
   for (const pattern of QRU_PATTERNS) {
     const match = content.match(pattern);
-    const value = match?.[1]?.trim();
+    const value = match?.[1]
+      ? sanitizeQru(match[1])
+      : "";
 
     if (value) return value;
   }
 
-  if (
-    /\bpris[aã]o\b/i.test(content) &&
-    !/\bacompanhamento\b/i.test(content)
-  ) {
+  const hasPrison =
+    /\bpris(?:ão|ao|ões|oes)\b/i.test(content);
+
+  const hasPursuit =
+    /\bacomp(?:anhamento|anhamentos|anha)?\b/i.test(
+      content
+    );
+
+  if (hasPrison && !hasPursuit) {
     return "Prisão";
+  }
+
+  if (hasPursuit && !hasPrison) {
+    return "Acompanhamento";
+  }
+
+  if (hasPrison && hasPursuit) {
+    return "Operação mista";
   }
 
   return null;
@@ -153,6 +189,7 @@ function normalizeActivityDate(
 
   if (
     parts.length < 2 ||
+    parts.length > 3 ||
     parts.some(
       (part) => !Number.isFinite(part)
     )
@@ -248,8 +285,6 @@ export function parseGamSyncReport(
   const normalizedContent =
     normalizeContent(content);
 
-  const errors: string[] = [];
-
   if (!normalizedContent) {
     return {
       success: false,
@@ -259,6 +294,8 @@ export function parseGamSyncReport(
       ]
     };
   }
+
+  const errors: string[] = [];
 
   const pursuit = parseActivity(
     normalizedContent,
@@ -326,10 +363,11 @@ export function calculateGamSyncDelta(
     Math.trunc(previousValue)
   );
 
-  return Math.max(
-    0,
-    current - previous
-  );
+  if (current < previous) {
+    return current;
+  }
+
+  return current - previous;
 }
 
 export function isGamSyncReport(
@@ -337,6 +375,10 @@ export function isGamSyncReport(
 ) {
   const normalizedContent =
     normalizeContent(content);
+
+  if (!normalizedContent) {
+    return false;
+  }
 
   return (
     PURSUIT_PATTERNS.some(

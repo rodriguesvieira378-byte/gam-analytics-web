@@ -1,6 +1,6 @@
 .page {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .header {
@@ -30,22 +30,39 @@
 }
 
 .summaryCard {
+  position: relative;
   display: grid;
   gap: 8px;
-  min-height: 116px;
-  padding: 15px;
+  min-height: 118px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.summaryCard::after {
+  position: absolute;
+  right: -28px;
+  bottom: -38px;
+  width: 105px;
+  height: 105px;
+  content: "";
+  background: radial-gradient(
+    circle,
+    rgba(105, 185, 255, 0.12),
+    transparent 68%
+  );
+  pointer-events: none;
 }
 
 .summaryCard > span {
   color: #9fb4c8;
   font-size: 0.7rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
 }
 
 .summaryCard > strong {
-  font-size: 1.85rem;
+  font-size: 1.9rem;
   line-height: 1;
 }
 
@@ -61,8 +78,8 @@
 .filters {
   display: grid;
   grid-template-columns:
-    minmax(220px, 1.5fr)
-    repeat(4, minmax(140px, 0.75fr));
+    minmax(240px, 1.65fr)
+    repeat(5, minmax(128px, 0.72fr));
   gap: 10px;
   align-items: end;
 }
@@ -79,6 +96,7 @@
 }
 
 .searchField input {
+  width: 100%;
   min-height: 40px;
   padding: 0 11px;
   color: #eef7ff;
@@ -86,9 +104,22 @@
   border: 1px solid #1d4264;
   border-radius: 9px;
   outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.searchField input::placeholder {
+  color: #55718a;
+}
+
+.searchField input:hover {
+  border-color: #2a557b;
 }
 
 .searchField input:focus {
+  background: #081d32;
   border-color: #168cff;
   box-shadow: 0 0 0 3px rgba(22, 140, 255, 0.12);
 }
@@ -96,13 +127,57 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .officerCard {
+  position: relative;
   display: grid;
   gap: 15px;
-  padding: 15px;
+  padding: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  outline: none;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.officerCard::before {
+  position: absolute;
+  top: 0;
+  left: 18px;
+  width: 54px;
+  height: 2px;
+  content: "";
+  background: linear-gradient(90deg, #168cff, #69b9ff);
+  border-radius: 0 0 8px 8px;
+  opacity: 0.78;
+  transition:
+    width 180ms ease,
+    opacity 180ms ease;
+}
+
+.officerCard:hover {
+  transform: translateY(-3px);
+  border-color: rgba(50, 126, 191, 0.7);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.26),
+    0 0 0 1px rgba(22, 140, 255, 0.06);
+}
+
+.officerCard:hover::before {
+  width: calc(100% - 36px);
+  opacity: 1;
+}
+
+.officerCard:focus-visible {
+  border-color: #168cff;
+  box-shadow:
+    0 0 0 3px rgba(22, 140, 255, 0.18),
+    0 18px 38px rgba(0, 0, 0, 0.25);
 }
 
 .identity {
@@ -115,14 +190,20 @@
 .avatar {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   overflow: hidden;
-  color: #69b9ff;
-  background: rgba(22, 140, 255, 0.1);
-  border: 1px solid rgba(22, 140, 255, 0.3);
-  border-radius: 12px;
+  color: #76c1ff;
+  background:
+    linear-gradient(145deg, rgba(22, 140, 255, 0.14), rgba(5, 27, 47, 0.8));
+  border: 1px solid rgba(22, 140, 255, 0.34);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 0 18px rgba(22, 140, 255, 0.06),
+    0 8px 18px rgba(0, 0, 0, 0.15);
+  font-size: 0.92rem;
   font-weight: 900;
+  letter-spacing: 0.04em;
 }
 
 .avatar img {
@@ -136,23 +217,32 @@
 }
 
 .identityText > span {
+  display: block;
+  overflow: hidden;
   color: #69b9ff;
-  font-size: 0.65rem;
+  font-size: 0.64rem;
   font-weight: 900;
+  letter-spacing: 0.055em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .identityText h3 {
-  margin: 3px 0;
+  margin: 4px 0 6px;
   overflow: hidden;
-  font-size: 0.95rem;
+  color: #f3f9ff;
+  font-size: 1.02rem;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .identityText p {
   margin: 0;
-  color: #819bb4;
-  font-size: 0.7rem;
+  color: #9cb0c2;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .stats {
@@ -162,10 +252,19 @@
 }
 
 .stats > div {
-  padding: 10px;
-  background: rgba(4, 18, 31, 0.72);
-  border: 1px solid rgba(31, 58, 82, 0.72);
-  border-radius: 9px;
+  min-width: 0;
+  padding: 11px 10px;
+  background:
+    linear-gradient(180deg, rgba(7, 27, 45, 0.82), rgba(4, 18, 31, 0.7));
+  border: 1px solid rgba(31, 58, 82, 0.76);
+  border-radius: 10px;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.officerCard:hover .stats > div {
+  border-color: rgba(38, 83, 122, 0.92);
 }
 
 .stats span,
@@ -174,48 +273,62 @@
 }
 
 .stats span {
+  overflow: hidden;
   color: #819bb4;
-  font-size: 0.62rem;
+  font-size: 0.61rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
 }
 
 .stats strong {
-  margin-top: 5px;
-  font-size: 1.05rem;
+  margin-top: 6px;
+  color: #eef7ff;
+  font-size: 1.08rem;
+  line-height: 1;
 }
 
 .stats small {
+  margin-left: 2px;
   color: #819bb4;
   font-size: 0.62rem;
+  font-weight: 700;
 }
 
 .progressBlock {
   display: grid;
-  gap: 8px;
+  gap: 9px;
 }
 
 .progressBlock > div:first-child {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   color: #9fb4c8;
   font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .progressBlock strong {
   color: #eef7ff;
+  font-size: 0.76rem;
 }
 
 .situation {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .situation small {
+  min-width: 0;
   overflow: hidden;
   color: #819bb4;
   font-size: 0.66rem;
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -224,8 +337,23 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(31, 58, 82, 0.65);
+  padding-top: 13px;
+  border-top: 1px solid rgba(31, 58, 82, 0.68);
+}
+
+.actions button {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1450px) {
+  .filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .searchField {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 1250px) {
@@ -270,6 +398,10 @@
 }
 
 @media (max-width: 650px) {
+  .page {
+    gap: 14px;
+  }
+
   .headerActions {
     align-items: stretch;
     flex-direction: column;
@@ -289,6 +421,11 @@
     grid-column: auto;
   }
 
+  .officerCard {
+    gap: 14px;
+    padding: 14px;
+  }
+
   .identity {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -298,7 +435,48 @@
     width: fit-content;
   }
 
+  .avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+  }
+
+  .stats {
+    gap: 6px;
+  }
+
+  .stats > div {
+    padding: 10px 8px;
+  }
+
+  .stats span {
+    font-size: 0.57rem;
+  }
+
+  .situation {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .situation small {
+    width: 100%;
+    text-align: left;
+  }
+
   .actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .officerCard,
+  .officerCard::before,
+  .stats > div,
+  .searchField input {
+    transition: none;
+  }
+
+  .officerCard:hover {
+    transform: none;
   }
 }

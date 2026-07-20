@@ -4,6 +4,8 @@ import type {
   GamSyncValidationResult
 } from "./types";
 
+const MAX_ACTIVITY_VALUE = 9999;
+
 function addIssue(
   issues: GamSyncValidationIssue[],
   issue: GamSyncValidationIssue
@@ -11,8 +13,89 @@ function addIssue(
   issues.push(issue);
 }
 
-function normalizeId(value: string | undefined | null) {
+function normalizeId(
+  value: string | undefined | null
+) {
   return String(value ?? "").trim();
+}
+
+function normalizeCounter(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      MAX_ACTIVITY_VALUE,
+      Math.trunc(value)
+    )
+  );
+}
+
+function hasValidAttachment(
+  attachments:
+    | GamSyncValidationContext["message"]["attachments"]
+    | undefined
+) {
+  return (
+    Array.isArray(attachments) &&
+    attachments.length > 0
+  );
+}
+
+function isAllowedChannel(
+  channelId: string,
+  allowedChannelIds: string[]
+) {
+  if (allowedChannelIds.length === 0) {
+    return true;
+  }
+
+  const normalizedAllowedChannels =
+    new Set(
+      allowedChannelIds
+        .map(normalizeId)
+        .filter(Boolean)
+    );
+
+  return normalizedAllowedChannels.has(
+    channelId
+  );
+}
+
+function isDuplicateMessage(
+  messageId: string,
+  existingMessageIds: string[]
+) {
+  if (!messageId) {
+    return false;
+  }
+
+  const normalizedExistingMessages =
+    new Set(
+      existingMessageIds
+        .map(normalizeId)
+        .filter(Boolean)
+    );
+
+  return normalizedExistingMessages.has(
+    messageId
+  );
+}
+
+function hasCounterProgress(
+  currentValue: number,
+  previousValue: number
+) {
+  if (currentValue > previousValue) {
+    return true;
+  }
+
+  return (
+    currentValue < previousValue &&
+    currentValue > 0
+  );
 }
 
 export function validateGamSyncReport(
@@ -31,16 +114,46 @@ export function validateGamSyncReport(
 
   const issues: GamSyncValidationIssue[] = [];
 
-  const messageId = normalizeId(message.messageId);
-  const channelId = normalizeId(message.channelId);
-  const authorDiscordId = normalizeId(
-    message.authorDiscordId
-  );
+  const messageId =
+    normalizeId(message.messageId);
+
+  const channelId =
+    normalizeId(message.channelId);
+
+  const authorDiscordId =
+    normalizeId(message.authorDiscordId);
+
+  const previousPursuit =
+    normalizeCounter(previousPursuitValue);
+
+  const previousPrison =
+    normalizeCounter(previousPrisonValue);
+
+  const pursuitCurrent =
+    normalizeCounter(
+      parsedReport.pursuitCurrent
+    );
+
+  const pursuitGoal =
+    normalizeCounter(
+      parsedReport.pursuitGoal
+    );
+
+  const prisonCurrent =
+    normalizeCounter(
+      parsedReport.prisonCurrent
+    );
+
+  const prisonGoal =
+    normalizeCounter(
+      parsedReport.prisonGoal
+    );
 
   if (!messageId) {
     addIssue(issues, {
       code: "missing_message_id",
-      message: "A mensagem do Discord não possui ID.",
+      message:
+        "A mensagem do Discord não possui ID.",
       severity: "error",
       field: "messageId"
     });
@@ -49,7 +162,8 @@ export function validateGamSyncReport(
   if (!channelId) {
     addIssue(issues, {
       code: "missing_channel_id",
-      message: "A mensagem do Discord não possui canal.",
+      message:
+        "A mensagem do Discord não possui canal.",
       severity: "error",
       field: "channelId"
     });
@@ -66,10 +180,10 @@ export function validateGamSyncReport(
   }
 
   if (
-    messageId &&
-    existingMessageIds
-      .map((id) => normalizeId(id))
-      .includes(messageId)
+    isDuplicateMessage(
+      messageId,
+      existingMessageIds
+    )
   ) {
     addIssue(issues, {
       code: "duplicate_message",
@@ -81,11 +195,11 @@ export function validateGamSyncReport(
   }
 
   if (
-    allowedChannelIds.length > 0 &&
     channelId &&
-    !allowedChannelIds
-      .map((id) => normalizeId(id))
-      .includes(channelId)
+    !isAllowedChannel(
+      channelId,
+      allowedChannelIds
+    )
   ) {
     addIssue(issues, {
       code: "channel_not_allowed",
@@ -116,7 +230,7 @@ export function validateGamSyncReport(
 
   if (
     requireAttachment &&
-    message.attachments.length === 0
+    !hasValidAttachment(message.attachments)
   ) {
     addIssue(issues, {
       code: "attachment_required",
@@ -142,60 +256,97 @@ export function validateGamSyncReport(
 
   if (
     parsedReport.hasPrison &&
-    parsedReport.prisonCurrent <
-      previousPrisonValue
+    prisonCurrent < previousPrison
   ) {
     addIssue(issues, {
-      code: "prison_value_regression",
+      code: "prison_counter_reset",
       message:
-        "O total de prisões informado é menor que o valor anterior.",
-      severity: "error",
+        "O total de prisões ficou menor que o registro anterior. O sistema tratará o valor como reinício de contagem.",
+      severity: "warning",
       field: "prisonCurrent"
     });
   }
 
   if (
     parsedReport.hasPursuit &&
-    parsedReport.pursuitCurrent <
-      previousPursuitValue
+    pursuitCurrent < previousPursuit
   ) {
     addIssue(issues, {
-      code: "pursuit_value_regression",
+      code: "pursuit_counter_reset",
       message:
-        "O total de acompanhamentos informado é menor que o valor anterior.",
-      severity: "error",
+        "O total de acompanhamentos ficou menor que o registro anterior. O sistema tratará o valor como reinício de contagem.",
+      severity: "warning",
       field: "pursuitCurrent"
     });
   }
 
   if (
     parsedReport.hasPrison &&
-    parsedReport.prisonGoal <= 0
+    prisonGoal <= 0
   ) {
     addIssue(issues, {
-      code: "invalid_prison_goal",
+      code: "missing_prison_goal",
       message:
-        "A meta de prisões precisa ser maior que zero.",
-      severity: "error",
+        "A meta de prisões não foi informada. O valor atual ainda poderá ser processado.",
+      severity: "warning",
       field: "prisonGoal"
     });
   }
 
   if (
     parsedReport.hasPursuit &&
-    parsedReport.pursuitGoal <= 0
+    pursuitGoal <= 0
   ) {
     addIssue(issues, {
-      code: "invalid_pursuit_goal",
+      code: "missing_pursuit_goal",
       message:
-        "A meta de acompanhamentos precisa ser maior que zero.",
-      severity: "error",
+        "A meta de acompanhamentos não foi informada. O valor atual ainda poderá ser processado.",
+      severity: "warning",
       field: "pursuitGoal"
     });
   }
 
-  // No formato real do Discord, a linha "QRU:" pode ficar vazia.
-  // A identificação da QRU será conferida pelo print anexado.
+  const prisonAdvanced =
+    parsedReport.hasPrison &&
+    hasCounterProgress(
+      prisonCurrent,
+      previousPrison
+    );
+
+  const pursuitAdvanced =
+    parsedReport.hasPursuit &&
+    hasCounterProgress(
+      pursuitCurrent,
+      previousPursuit
+    );
+
+  if (
+    (
+      parsedReport.hasPrison ||
+      parsedReport.hasPursuit
+    ) &&
+    !prisonAdvanced &&
+    !pursuitAdvanced
+  ) {
+    addIssue(issues, {
+      code: "no_activity_progress",
+      message:
+        "O relatório não possui avanço em relação aos valores já registrados.",
+      severity: "error",
+      field: "activities"
+    });
+  }
+
+  if (!parsedReport.qru) {
+    addIssue(issues, {
+      code: "missing_qru",
+      message:
+        "A QRU não foi identificada no texto. O print anexado deverá permitir a conferência.",
+      severity: "warning",
+      field: "qru"
+    });
+  }
+
   if (!parsedReport.activityDate) {
     addIssue(issues, {
       code: "missing_activity_date",

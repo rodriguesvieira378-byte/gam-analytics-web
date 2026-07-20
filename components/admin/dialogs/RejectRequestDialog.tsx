@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState
+} from "react";
+
 import type { GamMember } from "@/lib/types";
+
 import { Button } from "@/components/ui/Button";
 
 import styles from "../AdminModule.module.css";
 
-interface RejectRequestDialogProps {
+export interface RejectRequestDialogProps {
   member: GamMember | null;
   loading: boolean;
   onClose: () => void;
@@ -30,19 +35,65 @@ export function RejectRequestDialog({
     setError("");
   }, [member]);
 
-  if (!member) return null;
-
-  function submit() {
-    if (!member) return;
-
-    const normalized = reason.trim();
-
-    if (normalized.length < 3) {
-      setError("Informe o motivo da rejeição.");
+  useEffect(() => {
+    if (!member) {
       return;
     }
 
-    onConfirm(member, normalized);
+    function handleKeyDown(
+      event: KeyboardEvent
+    ) {
+      if (
+        event.key === "Escape" &&
+        !loading
+      ) {
+        onClose();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [loading, member, onClose]);
+
+  if (!member) {
+    return null;
+  }
+
+  const selectedMember: GamMember = member;
+
+  const displayName =
+    selectedMember.displayName?.trim() ||
+    "Usuário sem nome";
+
+  async function handleSubmit() {
+    if (loading) {
+      return;
+    }
+
+    const normalizedReason = reason.trim();
+
+    if (normalizedReason.length < 3) {
+      setError(
+        "Informe o motivo da rejeição."
+      );
+      return;
+    }
+
+    setError("");
+
+    await onConfirm(
+      selectedMember,
+      normalizedReason
+    );
   }
 
   return (
@@ -63,6 +114,7 @@ export function RejectRequestDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="reject-request-title"
+        aria-describedby="reject-request-description"
       >
         <div className={styles.dialogHeader}>
           <span>Controle de entrada</span>
@@ -71,9 +123,9 @@ export function RejectRequestDialog({
             Rejeitar solicitação
           </h3>
 
-          <p>
+          <p id="reject-request-description">
             Informe por que o acesso de{" "}
-            <strong>{member.displayName}</strong>{" "}
+            <strong>{displayName}</strong>{" "}
             não será liberado.
           </p>
         </div>
@@ -82,8 +134,16 @@ export function RejectRequestDialog({
           <span>Motivo da rejeição</span>
 
           <textarea
+            autoFocus
             value={reason}
             maxLength={500}
+            disabled={loading}
+            aria-invalid={Boolean(error)}
+            aria-describedby={
+              error
+                ? "reject-request-error"
+                : undefined
+            }
             placeholder="Ex.: integrante não localizado na unidade."
             onChange={(event) => {
               setReason(event.target.value);
@@ -92,11 +152,15 @@ export function RejectRequestDialog({
           />
         </label>
 
-        {error && (
-          <div className={styles.dialogError}>
+        {error ? (
+          <div
+            id="reject-request-error"
+            className={styles.dialogError}
+            role="alert"
+          >
             {error}
           </div>
-        )}
+        ) : null}
 
         <div className={styles.dialogActions}>
           <Button
@@ -110,7 +174,8 @@ export function RejectRequestDialog({
           <Button
             variant="danger"
             loading={loading}
-            onClick={submit}
+            disabled={loading}
+            onClick={handleSubmit}
           >
             Confirmar rejeição
           </Button>

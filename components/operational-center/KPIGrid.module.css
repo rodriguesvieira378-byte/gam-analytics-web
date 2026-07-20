@@ -2,6 +2,11 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
+}
+
+.grid > * {
+  min-width: 0;
 }
 
 @media (max-width: 1380px) {
@@ -19,5 +24,6 @@
 @media (max-width: 560px) {
   .grid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 }

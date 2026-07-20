@@ -17,59 +17,437 @@
     );
 }
 
+/* =========================================================
+   COMMAND INTELLIGENCE
+   ========================================================= */
+
+.intelligence {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid rgba(54, 112, 153, 0.42);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(24, 128, 255, 0.12),
+      transparent 34%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(8, 27, 45, 0.96),
+      rgba(4, 17, 30, 0.98)
+    );
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.intelligence::before {
+  position: absolute;
+  top: 0;
+  right: 20%;
+  left: 20%;
+  height: 1px;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(65, 166, 255, 0.72),
+    transparent
+  );
+}
+
+.intelligenceHeader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.intelligenceHeading {
+  min-width: 0;
+}
+
+.intelligenceEyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: #52b7ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.intelligenceTitle {
+  margin: 0;
+  color: #f6f9ff;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.intelligenceDescription {
+  max-width: 680px;
+  margin: 8px 0 0;
+  color: #9bb0c1;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.trendBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid rgba(141, 166, 187, 0.32);
+  border-radius: 999px;
+  color: #8da6bb;
+  background: rgba(141, 166, 187, 0.08);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.trendSymbol {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.trendUp {
+  border-color: rgba(70, 213, 151, 0.34);
+  color: #46d597;
+  background: rgba(70, 213, 151, 0.08);
+}
+
+.trendDown {
+  border-color: rgba(255, 107, 122, 0.34);
+  color: #ff6b7a;
+  background: rgba(255, 107, 122, 0.08);
+}
+
+.trendStable {
+  border-color: rgba(242, 201, 76, 0.34);
+  color: #f2c94c;
+  background: rgba(242, 201, 76, 0.08);
+}
+
+.trendNeutral {
+  border-color: rgba(141, 166, 187, 0.32);
+  color: #8da6bb;
+  background: rgba(141, 166, 187, 0.08);
+}
+
+.intelligenceGrid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(175px, 1fr));
+  gap: 12px;
+}
+
+.intelligenceCard {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 118px;
+  padding: 15px;
+  overflow: hidden;
+  border: 1px solid rgba(56, 105, 143, 0.42);
+  border-radius: 13px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(7, 25, 42, 0.88),
+      rgba(4, 17, 30, 0.92)
+    );
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.intelligenceCard::after {
+  position: absolute;
+  right: -25px;
+  bottom: -35px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  content: "";
+  background: rgba(38, 137, 230, 0.06);
+  pointer-events: none;
+}
+
+.intelligenceCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(75, 158, 218, 0.62);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(9, 32, 53, 0.94),
+      rgba(5, 20, 35, 0.96)
+    );
+}
+
+.intelligenceLabel {
+  position: relative;
+  z-index: 1;
+  color: #8fa7ba;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.intelligenceValue {
+  position: relative;
+  z-index: 1;
+  color: #f7fbff;
+  font-size: 24px;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.intelligenceValuePositive {
+  color: #46d597;
+}
+
+.intelligenceValueNegative {
+  color: #ff6b7a;
+}
+
+.intelligenceValueStable {
+  color: #f2c94c;
+}
+
+.intelligenceValueNeutral {
+  color: #8da6bb;
+}
+
+.intelligenceDetail {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  color: #71899d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.commandReading {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid rgba(69, 146, 198, 0.42);
+  border-radius: 13px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(15, 54, 82, 0.42),
+      rgba(7, 32, 52, 0.46)
+    );
+}
+
+.commandReadingContent {
+  min-width: 0;
+}
+
+.commandReadingTitle {
+  display: block;
+  margin-bottom: 5px;
+  color: #f5f9ff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.commandReadingText {
+  margin: 0;
+  color: #a9bdcc;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.noEntriesSummary {
+  min-width: 96px;
+  padding-left: 18px;
+  border-left: 1px solid rgba(114, 166, 204, 0.25);
+  text-align: right;
+}
+
+.noEntriesValue {
+  display: block;
+  color: #f5f9ff;
+  font-size: 24px;
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.noEntriesLabel {
+  display: block;
+  margin-top: 4px;
+  color: #8299ab;
+  font-size: 12px;
+}
+
+/* =========================================================
+   MÓDULOS OPERACIONAIS
+   ========================================================= */
+
 .modules {
   display: grid;
   grid-template-columns:
-    minmax(0, 1.35fr)
-    minmax(320px, 0.85fr);
+    minmax(0, 1.45fr)
+    minmax(360px, 0.9fr);
   grid-template-areas:
-    "feed ranking"
-    "timeline health";
+    "left ranking"
+    "health health";
   gap: 14px;
   align-items: start;
 }
 
-.feed {
-  grid-area: feed;
+.leftColumn {
+  grid-area: left;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.feed,
+.ranking,
+.timeline,
+.health {
+  min-width: 0;
 }
 
 .ranking {
   grid-area: ranking;
 }
 
-.timeline {
-  grid-area: timeline;
-}
-
 .health {
   grid-area: health;
 }
 
-.modules > div > * {
+.modules > div > *,
+.leftColumn > div > * {
   height: 100%;
 }
 
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+
 @media (max-width: 1100px) {
   .modules {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "feed feed"
-      "ranking health"
-      "timeline timeline";
+      "left"
+      "ranking"
+      "health";
+  }
+
+  .intelligenceGrid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
   .page {
+    gap: 14px;
     padding: 14px;
   }
 
-  .modules {
+  .intelligence {
+    gap: 16px;
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .intelligenceHeader {
+    display: grid;
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "feed"
-      "ranking"
-      "timeline"
-      "health";
+  }
+
+  .trendBadge {
+    width: fit-content;
+  }
+
+  .intelligenceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .intelligenceCard {
+    min-height: 108px;
+  }
+
+  .commandReading {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .noEntriesSummary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid rgba(114, 166, 204, 0.25);
+    border-left: 0;
+    text-align: left;
+  }
+
+  .noEntriesValue {
+    order: 2;
+  }
+
+  .noEntriesLabel {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    padding: 10px;
+  }
+
+  .intelligence {
+    padding: 14px;
+  }
+
+  .intelligenceTitle {
+    font-size: 18px;
+  }
+
+  .intelligenceDescription {
+    font-size: 13px;
+  }
+
+  .intelligenceValue {
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intelligenceCard {
+    transition: none;
+  }
+
+  .intelligenceCard:hover {
+    transform: none;
   }
 }

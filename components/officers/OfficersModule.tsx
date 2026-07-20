@@ -2,8 +2,13 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+
 import { MONTHS, WEEKS } from "@/lib/constants";
-import type { Officer, OfficerMetrics } from "@/lib/types";
+import type {
+  Officer,
+  OfficerMetrics
+} from "@/lib/types";
+
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -20,9 +25,26 @@ type SituationFilter =
   | "ABAIXO DA META"
   | "SEM REGISTRO";
 
-type StatusFilter = "todos" | "Ativo" | "Inativo";
-type RoleFilter = "todos" | "Oficial GAM" | "Estagiário";
-type SortMode = "nome" | "total" | "prisoes" | "acompanhamentos";
+type StatusFilter =
+  | "todos"
+  | "Ativo"
+  | "Inativo";
+
+type RoleFilter =
+  | "todos"
+  | "Oficial GAM"
+  | "Estagiário";
+
+type GarrisonFilter =
+  | "todas"
+  | "Militar"
+  | "Civil";
+
+type SortMode =
+  | "nome"
+  | "total"
+  | "prisoes"
+  | "acompanhamentos";
 
 export interface OfficersModuleProps {
   metrics: OfficerMetrics[];
@@ -37,20 +59,50 @@ export interface OfficersModuleProps {
   onOpenProfile: (officerId: string) => void;
 }
 
-function initials(name: string) {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "GAM"
+function normalizeText(value?: string | null) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getInitials(name: string) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
+  return initials || "GAM";
+}
+
+function clampProgress(value?: number | null) {
+  const progress = Number(value);
+
+  if (!Number.isFinite(progress)) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.min(100, Math.round(progress * 100))
   );
 }
 
-function situationTone(situation: OfficerMetrics["situation"]) {
-  if (situation === "META ATINGIDA") return "green";
-  if (situation === "SEM REGISTRO") return "red";
+function getSituationTone(
+  situation: OfficerMetrics["situation"]
+) {
+  if (situation === "META ATINGIDA") {
+    return "green";
+  }
+
+  if (situation === "SEM REGISTRO") {
+    return "red";
+  }
+
   return "yellow";
 }
 
@@ -73,16 +125,22 @@ export function OfficersModule({
     useState<StatusFilter>("todos");
   const [role, setRole] =
     useState<RoleFilter>("todos");
+  const [garrison, setGarrison] =
+    useState<GarrisonFilter>("todas");
   const [sortMode, setSortMode] =
     useState<SortMode>("total");
 
-  const metricById = useMemo(
-    () => new Map(metrics.map((metric) => [metric.id, metric])),
-    [metrics]
-  );
+  const metricById = useMemo(() => {
+    return new Map(
+      metrics.map((metric) => [
+        metric.id,
+        metric
+      ])
+    );
+  }, [metrics]);
 
   const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizeText(search);
 
     return officers
       .map((officer) => ({
@@ -90,11 +148,18 @@ export function OfficersModule({
         metric: metricById.get(officer.id)
       }))
       .filter(({ officer, metric }) => {
+        const searchableText = normalizeText(
+          [
+            officer.name,
+            officer.registration,
+            officer.discordUrl,
+            officer.garrison
+          ].join(" ")
+        );
+
         const matchesSearch =
           !term ||
-          officer.name.toLowerCase().includes(term) ||
-          officer.registration.toLowerCase().includes(term) ||
-          String(officer.discordUrl ?? "").includes(term);
+          searchableText.includes(term);
 
         const matchesSituation =
           situation === "todas" ||
@@ -108,11 +173,16 @@ export function OfficersModule({
           role === "todos" ||
           officer.role === role;
 
+        const matchesGarrison =
+          garrison === "todas" ||
+          officer.garrison === garrison;
+
         return (
           matchesSearch &&
           matchesSituation &&
           matchesStatus &&
-          matchesRole
+          matchesRole &&
+          matchesGarrison
         );
       })
       .sort((a, b) => {
@@ -127,16 +197,36 @@ export function OfficersModule({
         const bMetric = b.metric;
 
         if (sortMode === "prisoes") {
-          return (bMetric?.prisons ?? 0) - (aMetric?.prisons ?? 0);
+          return (
+            (bMetric?.prisons ?? 0) -
+            (aMetric?.prisons ?? 0)
+          );
         }
 
-        if (sortMode === "acompanhamentos") {
-          return (bMetric?.pursuits ?? 0) - (aMetric?.pursuits ?? 0);
+        if (
+          sortMode === "acompanhamentos"
+        ) {
+          return (
+            (bMetric?.pursuits ?? 0) -
+            (aMetric?.pursuits ?? 0)
+          );
         }
 
-        return (bMetric?.total ?? 0) - (aMetric?.total ?? 0);
+        const totalDifference =
+          (bMetric?.total ?? 0) -
+          (aMetric?.total ?? 0);
+
+        if (totalDifference !== 0) {
+          return totalDifference;
+        }
+
+        return a.officer.name.localeCompare(
+          b.officer.name,
+          "pt-BR"
+        );
       });
   }, [
+    garrison,
     metricById,
     officers,
     role,
@@ -146,28 +236,41 @@ export function OfficersModule({
     status
   ]);
 
-  const activeCount = officers.filter(
-    (officer) => officer.status === "Ativo"
-  ).length;
+  const summary = useMemo(() => {
+    const activeCount = officers.filter(
+      (officer) =>
+        officer.status === "Ativo"
+    ).length;
 
-  const metGoals = metrics.filter(
-    (metric) => metric.situation === "META ATINGIDA"
-  ).length;
+    const metGoals = metrics.filter(
+      (metric) =>
+        metric.situation === "META ATINGIDA"
+    ).length;
 
-  const noEntries = metrics.filter(
-    (metric) => metric.situation === "SEM REGISTRO"
-  ).length;
+    const noEntries = metrics.filter(
+      (metric) =>
+        metric.situation === "SEM REGISTRO"
+    ).length;
 
-  const averageProgress =
-    metrics.length > 0
-      ? Math.round(
-          metrics.reduce(
-            (sum, metric) =>
-              sum + Math.round(metric.progress * 100),
-            0
-          ) / metrics.length
-        )
-      : 0;
+    const averageProgress =
+      metrics.length > 0
+        ? Math.round(
+            metrics.reduce(
+              (total, metric) =>
+                total +
+                clampProgress(metric.progress),
+              0
+            ) / metrics.length
+          )
+        : 0;
+
+    return {
+      activeCount,
+      metGoals,
+      noEntries,
+      averageProgress
+    };
+  }, [metrics, officers]);
 
   return (
     <section className={styles.page}>
@@ -183,12 +286,16 @@ export function OfficersModule({
             <Select
               aria-label="Selecionar mês"
               value={month}
-              options={MONTHS.map((label, index) => ({
-                value: index + 1,
-                label
-              }))}
+              options={MONTHS.map(
+                (label, index) => ({
+                  value: index + 1,
+                  label
+                })
+              )}
               onChange={(event) =>
-                onMonthChange(Number(event.target.value))
+                onMonthChange(
+                  Number(event.target.value)
+                )
               }
             />
 
@@ -200,46 +307,70 @@ export function OfficersModule({
                 label: `Semana ${value}`
               }))}
               onChange={(event) =>
-                onWeekChange(Number(event.target.value))
+                onWeekChange(
+                  Number(event.target.value)
+                )
               }
             />
           </div>
 
-          {canOperate && (
+          {canOperate ? (
             <Button onClick={onNewOfficer}>
               + Novo integrante
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
-      <section className={styles.summary}>
-        <Card tone="blue" className={styles.summaryCard}>
+      <section
+        className={styles.summary}
+        aria-label="Resumo do efetivo"
+      >
+        <Card
+          tone="blue"
+          className={styles.summaryCard}
+        >
           <span>Total do efetivo</span>
           <strong>{officers.length}</strong>
-          <small>{activeCount} ativo(s)</small>
+          <small>
+            {summary.activeCount} ativo(s)
+          </small>
         </Card>
 
-        <Card tone="green" className={styles.summaryCard}>
+        <Card
+          tone="green"
+          className={styles.summaryCard}
+        >
           <span>Metas atingidas</span>
-          <strong>{metGoals}</strong>
+          <strong>{summary.metGoals}</strong>
           <small>Semana {week}</small>
         </Card>
 
         <Card
-          tone={noEntries > 0 ? "red" : "green"}
+          tone={
+            summary.noEntries > 0
+              ? "red"
+              : "green"
+          }
           className={styles.summaryCard}
         >
           <span>Sem registro</span>
-          <strong>{noEntries}</strong>
-          <small>Precisam de acompanhamento</small>
+          <strong>{summary.noEntries}</strong>
+          <small>
+            Precisam de acompanhamento
+          </small>
         </Card>
 
-        <Card tone="blue" className={styles.summaryCard}>
+        <Card
+          tone="blue"
+          className={styles.summaryCard}
+        >
           <span>Progresso médio</span>
-          <strong>{averageProgress}%</strong>
+          <strong>
+            {summary.averageProgress}%
+          </strong>
           <Progress
-            value={averageProgress}
+            value={summary.averageProgress}
             size="sm"
             tone="blue"
           />
@@ -255,7 +386,8 @@ export function OfficersModule({
               onChange={(event) =>
                 setSearch(event.target.value)
               }
-              placeholder="Nome, matrícula ou Discord"
+              placeholder="Nome, matrícula, Discord ou guarnição"
+              autoComplete="off"
             />
           </label>
 
@@ -263,7 +395,10 @@ export function OfficersModule({
             label="Situação"
             value={situation}
             options={[
-              { value: "todas", label: "Todas" },
+              {
+                value: "todas",
+                label: "Todas"
+              },
               {
                 value: "META ATINGIDA",
                 label: "Meta atingida"
@@ -279,7 +414,8 @@ export function OfficersModule({
             ]}
             onChange={(event) =>
               setSituation(
-                event.target.value as SituationFilter
+                event.target
+                  .value as SituationFilter
               )
             }
           />
@@ -288,12 +424,24 @@ export function OfficersModule({
             label="Status"
             value={status}
             options={[
-              { value: "todos", label: "Todos" },
-              { value: "Ativo", label: "Ativos" },
-              { value: "Inativo", label: "Inativos" }
+              {
+                value: "todos",
+                label: "Todos"
+              },
+              {
+                value: "Ativo",
+                label: "Ativos"
+              },
+              {
+                value: "Inativo",
+                label: "Inativos"
+              }
             ]}
             onChange={(event) =>
-              setStatus(event.target.value as StatusFilter)
+              setStatus(
+                event.target
+                  .value as StatusFilter
+              )
             }
           />
 
@@ -301,7 +449,10 @@ export function OfficersModule({
             label="Cargo"
             value={role}
             options={[
-              { value: "todos", label: "Todos" },
+              {
+                value: "todos",
+                label: "Todos"
+              },
               {
                 value: "Oficial GAM",
                 label: "Oficial GAM"
@@ -312,7 +463,34 @@ export function OfficersModule({
               }
             ]}
             onChange={(event) =>
-              setRole(event.target.value as RoleFilter)
+              setRole(
+                event.target.value as RoleFilter
+              )
+            }
+          />
+
+          <Select
+            label="Guarnição"
+            value={garrison}
+            options={[
+              {
+                value: "todas",
+                label: "Todas"
+              },
+              {
+                value: "Militar",
+                label: "Militar"
+              },
+              {
+                value: "Civil",
+                label: "Civil"
+              }
+            ]}
+            onChange={(event) =>
+              setGarrison(
+                event.target
+                  .value as GarrisonFilter
+              )
             }
           />
 
@@ -320,16 +498,27 @@ export function OfficersModule({
             label="Ordenar"
             value={sortMode}
             options={[
-              { value: "total", label: "Total operacional" },
-              { value: "prisoes", label: "Prisões" },
+              {
+                value: "total",
+                label: "Total operacional"
+              },
+              {
+                value: "prisoes",
+                label: "Prisões"
+              },
               {
                 value: "acompanhamentos",
                 label: "Acompanhamentos"
               },
-              { value: "nome", label: "Nome" }
+              {
+                value: "nome",
+                label: "Nome"
+              }
             ]}
             onChange={(event) =>
-              setSortMode(event.target.value as SortMode)
+              setSortMode(
+                event.target.value as SortMode
+              )
             }
           />
         </div>
@@ -343,143 +532,221 @@ export function OfficersModule({
           />
         </Card>
       ) : (
-        <section className={styles.grid}>
-          {filtered.map(({ officer, metric }) => {
-            const progress = Math.max(
-              0,
-              Math.min(
-                100,
-                Math.round((metric?.progress ?? 0) * 100)
-              )
-            );
+        <section
+          className={styles.grid}
+          aria-label="Integrantes da G.A.M."
+        >
+          {filtered.map(
+            ({ officer, metric }) => {
+              const progress = clampProgress(
+                metric?.progress
+              );
 
-            return (
-              <Card
-                key={officer.id}
-                tone={
-                  officer.status === "Inativo"
-                    ? "red"
-                    : "default"
-                }
-                interactive
-                className={styles.officerCard}
-              >
-                <div className={styles.identity}>
-                  <div className={styles.avatar}>
-                    {officer.photoUrl ? (
-                      <Image
-                        src={officer.photoUrl}
-                        alt={`Foto de ${officer.name}`}
-                        width={88}
-                        height={88}
-                        unoptimized
-                      />
-                    ) : (
-                      <span>{initials(officer.name)}</span>
-                    )}
-                  </div>
+              const situationValue =
+                metric?.situation ??
+                "SEM REGISTRO";
 
-                  <div className={styles.identityText}>
-                    <span>{officer.registration}</span>
-                    <h3>{officer.name}</h3>
-                    <p>{officer.role}</p>
-                  </div>
-
-                  <Badge
-                    tone={
-                      officer.status === "Ativo"
-                        ? "green"
-                        : "red"
+              return (
+                <Card
+                  key={officer.id}
+                  tone={
+                    officer.status === "Inativo"
+                      ? "red"
+                      : "default"
+                  }
+                  interactive
+                  className={styles.officerCard}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Abrir ficha de ${officer.name}`}
+                  onClick={() =>
+                    onOpenProfile(officer.id)
+                  }
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" ||
+                      event.key === " "
+                    ) {
+                      event.preventDefault();
+                      onOpenProfile(officer.id);
                     }
-                    size="sm"
-                  >
-                    {officer.status}
-                  </Badge>
-                </div>
+                  }}
+                >
+                  <div className={styles.identity}>
+                    <div className={styles.avatar}>
+                      {officer.photoUrl ? (
+                        <Image
+                          src={officer.photoUrl}
+                          alt={`Foto de ${officer.name}`}
+                          width={88}
+                          height={88}
+                          unoptimized
+                        />
+                      ) : (
+                        <span>
+                          {getInitials(
+                            officer.name
+                          )}
+                        </span>
+                      )}
+                    </div>
 
-                <div className={styles.stats}>
-                  <div>
-                    <span>Prisões</span>
-                    <strong>
-                      {metric?.prisons ?? 0}
-                      <small>
-                        /{metric?.prisonGoal ?? officer.prisonGoal}
-                      </small>
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Acompanhamentos</span>
-                    <strong>
-                      {metric?.pursuits ?? 0}
-                      <small>
-                        /{metric?.pursuitGoal ?? officer.pursuitGoal}
-                      </small>
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Total</span>
-                    <strong>{metric?.total ?? 0}</strong>
-                  </div>
-                </div>
-
-                <div className={styles.progressBlock}>
-                  <div>
-                    <span>Progresso semanal</span>
-                    <strong>{progress}%</strong>
-                  </div>
-
-                  <Progress
-                    value={progress}
-                    tone={
-                      metric?.situation === "META ATINGIDA"
-                        ? "green"
-                        : metric?.situation === "SEM REGISTRO"
-                          ? "red"
-                          : "yellow"
-                    }
-                    size="sm"
-                  />
-                </div>
-
-                <div className={styles.situation}>
-                  <Badge
-                    tone={situationTone(
-                      metric?.situation ?? "SEM REGISTRO"
-                    )}
-                    size="sm"
-                  >
-                    {metric?.situation ?? "SEM REGISTRO"}
-                  </Badge>
-
-                  <small>
-                    {officer.discordUrl
-                      ? `Discord ${officer.discordUrl}`
-                      : "Discord não informado"}
-                  </small>
-                </div>
-
-                <div className={styles.actions}>
-                  <Button
-                    variant="secondary"
-                    onClick={() => onOpenProfile(officer.id)}
-                  >
-                    Ver ficha
-                  </Button>
-
-                  {canOperate && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => onEditOfficer(officer)}
+                    <div
+                      className={
+                        styles.identityText
+                      }
                     >
-                      Editar
+                      <span>
+                        {officer.registration}
+                      </span>
+                      <h3>{officer.name}</h3>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap"
+                        }}
+                      >
+                        <p>{officer.role}</p>
+
+                        <Badge
+                          tone={
+                            officer.garrison ===
+                            "Militar"
+                              ? "blue"
+                              : "neutral"
+                          }
+                          size="sm"
+                        >
+                          {officer.garrison}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <Badge
+                      tone={
+                        officer.status === "Ativo"
+                          ? "green"
+                          : "red"
+                      }
+                      size="sm"
+                    >
+                      {officer.status}
+                    </Badge>
+                  </div>
+
+                  <div className={styles.stats}>
+                    <div>
+                      <span>Prisões</span>
+                      <strong>
+                        {metric?.prisons ?? 0}
+                        <small>
+                          /
+                          {metric?.prisonGoal ??
+                            officer.prisonGoal}
+                        </small>
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Acompanhamentos
+                      </span>
+                      <strong>
+                        {metric?.pursuits ?? 0}
+                        <small>
+                          /
+                          {metric?.pursuitGoal ??
+                            officer.pursuitGoal}
+                        </small>
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Total</span>
+                      <strong>
+                        {metric?.total ?? 0}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div
+                    className={
+                      styles.progressBlock
+                    }
+                  >
+                    <div>
+                      <span>
+                        Progresso semanal
+                      </span>
+                      <strong>
+                        {progress}%
+                      </strong>
+                    </div>
+
+                    <Progress
+                      value={progress}
+                      tone={
+                        situationValue ===
+                        "META ATINGIDA"
+                          ? "green"
+                          : situationValue ===
+                              "SEM REGISTRO"
+                            ? "red"
+                            : "yellow"
+                      }
+                      size="sm"
+                    />
+                  </div>
+
+                  <div
+                    className={styles.situation}
+                  >
+                    <Badge
+                      tone={getSituationTone(
+                        situationValue
+                      )}
+                      size="sm"
+                    >
+                      {situationValue}
+                    </Badge>
+
+                    <small>
+                      {officer.discordUrl
+                        ? `Discord ${officer.discordUrl}`
+                        : "Discord não informado"}
+                    </small>
+                  </div>
+
+                  <div className={styles.actions}>
+                    <Button
+                      variant="secondary"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenProfile(officer.id);
+                      }}
+                    >
+                      Ver ficha
                     </Button>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
+
+                    {canOperate ? (
+                      <Button
+                        variant="ghost"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditOfficer(officer);
+                        }}
+                      >
+                        Editar
+                      </Button>
+                    ) : null}
+                  </div>
+                </Card>
+              );
+            }
+          )}
         </section>
       )}
     </section>

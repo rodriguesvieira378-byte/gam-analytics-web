@@ -1,4 +1,12 @@
-import type { Officer, OfficerMetrics, WeeklyEntry } from "@/lib/types";
+import {
+  calculateClampedOverallGoalPercentage,
+  getCurrentActivityTotal
+} from "@/lib/core";
+import type {
+  Officer,
+  OfficerMetrics,
+  WeeklyEntry
+} from "@/lib/types";
 
 export function getMetrics(
   officer: Officer,
@@ -17,10 +25,16 @@ export function getMetrics(
 
   const prisons = entry?.prisons ?? 0;
   const pursuits = entry?.pursuits ?? 0;
-  const prisonRate = officer.prisonGoal > 0 ? prisons / officer.prisonGoal : 0;
-  const pursuitRate =
-    officer.pursuitGoal > 0 ? pursuits / officer.pursuitGoal : 0;
-  const progress = Math.min(1, (prisonRate + pursuitRate) / 2);
+
+  const progress =
+    calculateClampedOverallGoalPercentage(
+      prisons,
+      pursuits,
+      {
+        prisons: officer.prisonGoal,
+        pursuits: officer.pursuitGoal
+      }
+    ) / 100;
 
   let situation: OfficerMetrics["situation"] = "ABAIXO DA META";
 
@@ -59,21 +73,29 @@ export function getMetrics(
     ...officer,
     prisons,
     pursuits,
-    total: prisons + pursuits,
+    total: getCurrentActivityTotal(prisons, pursuits),
     progress,
     situation,
     guidance
   };
 }
 
-export function monthNumberToLabel(month: number, months: readonly string[]) {
+export function monthNumberToLabel(
+  month: number,
+  months: readonly string[]
+) {
   return months[month - 1] ?? String(month);
 }
 
 export function createId(prefix: string) {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+  if (
+    typeof crypto !== "undefined" &&
+    "randomUUID" in crypto
+  ) {
     return `${prefix}-${crypto.randomUUID()}`;
   }
 
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
 }

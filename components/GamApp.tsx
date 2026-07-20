@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { GamSyncPanel } from "@/lib/gam-sync/GamSyncPanel";
 import { OperationalCenterV2 } from "./operational-center";
 import { OfficersModule } from "./officers";
 import { OperationsModule } from "./operations";
@@ -75,6 +76,7 @@ import type {
   Officer,
   OfficerMetrics,
   OperationalNotification,
+  OfficerGarrison,
   OfficerRole,
   OfficerStatus,
   Screen,
@@ -297,6 +299,7 @@ const AUDIT_FIELD_LABELS: Record<string, string> = {
   registration: "Matrícula",
   name: "Nome",
   role: "Cargo / permissão",
+  garrison: "Guarnição",
   status: "Status",
   prison_goal: "Meta de prisões",
   prisonGoal: "Meta de prisões",
@@ -1843,6 +1846,7 @@ function GamAppContent() {
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const role = form.get("role") as OfficerRole;
+    const garrison = form.get("garrison") as OfficerGarrison;
     const status = form.get("status") as OfficerStatus;
     const registration = String(form.get("registration") ?? "")
       .trim()
@@ -1861,6 +1865,7 @@ function GamAppContent() {
         registration,
         name,
         role,
+        garrison,
         status,
         prisonGoal: role === "Oficial GAM" ? 4 : 6,
         pursuitGoal: role === "Oficial GAM" ? 6 : 12,
@@ -2902,6 +2907,16 @@ function GamAppContent() {
                           </select>
                         </label>
                         <label className="field">
+                          <span>Guarnição</span>
+                          <select
+                            name="garrison"
+                            defaultValue={editingOfficer.garrison ?? "Militar"}
+                          >
+                            <option>Militar</option>
+                            <option>Civil</option>
+                          </select>
+                        </label>
+                        <label className="field">
                           <span>Status</span>
                           <select
                             name="status"
@@ -2953,6 +2968,7 @@ function GamAppContent() {
                         registration: "",
                         name: "",
                         role: "Estagiário",
+                        garrison: "Militar",
                         status: "Ativo",
                         prisonGoal: 6,
                         pursuitGoal: 12,
@@ -3129,14 +3145,46 @@ function GamAppContent() {
               )}
 
               {screen === "discord" && (
-                <OperationsModule
-                  records={discordRecords}
-                  officers={officers}
-                  month={month}
-                  week={week}
-                  onMonthChange={setMonth}
-                  onWeekChange={setWeek}
-                />
+                <>
+                  <OperationsModule
+                    records={discordRecords}
+                    officers={officers}
+                    month={month}
+                    week={week}
+                    onMonthChange={setMonth}
+                    onWeekChange={setWeek}
+                  />
+
+                  <GamSyncPanel
+                    officers={officers}
+                    entries={entries}
+                    year={year}
+                    month={month}
+                    week={week}
+                    onProcessed={(savedEntry) => {
+                      setEntries((current) => {
+                        const index = current.findIndex(
+                          (item) =>
+                            item.officerId === savedEntry.officerId &&
+                            item.year === savedEntry.year &&
+                            item.month === savedEntry.month &&
+                            item.week === savedEntry.week
+                        );
+
+                        if (index < 0) {
+                          return [savedEntry, ...current];
+                        }
+
+                        const next = [...current];
+                        next[index] = savedEntry;
+                        return next;
+                      });
+
+                      void refreshAuditLogs();
+                      notify("Mensagem processada pelo GAM Sync.");
+                    }}
+                  />
+                </>
               )}
 
               {screen === "inteligencia" && (
@@ -3339,7 +3387,9 @@ function OfficerProfileModal({
           <div>
             <span className="officer-registration">{officer.registration}</span>
             <h2>{officer.name}</h2>
-            <p>{officer.role} • {officer.status}</p>
+            <p>
+              {officer.role} • {officer.garrison} • {officer.status}
+            </p>
           </div>
           <button className="modal-close" type="button" onClick={onClose} aria-label="Fechar">×</button>
         </div>

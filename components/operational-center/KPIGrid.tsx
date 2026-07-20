@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { KPICard } from "./KPICard";
 import styles from "./KPIGrid.module.css";
 
@@ -14,6 +16,14 @@ export interface KPIGridProps {
   latestSyncLabel: string;
 }
 
+function safeNumber(value: number) {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function clampPercentage(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
 export function KPIGrid({
   totalPrisons,
   totalPursuits,
@@ -24,71 +34,138 @@ export function KPIGrid({
   metGoals,
   latestSyncLabel
 }: KPIGridProps) {
-  const queueTotal = pendingCount + rejectedCount;
+  const metrics = useMemo(() => {
+    const prisons = safeNumber(totalPrisons);
+    const pursuits = safeNumber(totalPursuits);
+    const pending = safeNumber(pendingCount);
+    const rejected = safeNumber(rejectedCount);
+    const approved = safeNumber(approvedCount);
+    const active = safeNumber(activeCount);
+    const goalsMet = Math.min(
+      safeNumber(metGoals),
+      active
+    );
 
-  const effectiveness =
-    activeCount > 0
-      ? Math.round((metGoals / activeCount) * 100)
-      : 0;
+    const queueTotal = pending + rejected;
+    const processedTotal =
+      approved + pending + rejected;
 
-  const processedTotal =
-    approvedCount + pendingCount + rejectedCount;
+    const effectiveness =
+      active > 0
+        ? clampPercentage((goalsMet / active) * 100)
+        : 0;
 
-  const syncProgress =
-    processedTotal > 0
-      ? Math.round((approvedCount / processedTotal) * 100)
-      : 100;
+    const syncProgress =
+      processedTotal > 0
+        ? clampPercentage(
+            (approved / processedTotal) * 100
+          )
+        : 100;
+
+    return {
+      prisons,
+      pursuits,
+      pending,
+      rejected,
+      approved,
+      active,
+      goalsMet,
+      queueTotal,
+      effectiveness,
+      syncProgress
+    };
+  }, [
+    totalPrisons,
+    totalPursuits,
+    pendingCount,
+    rejectedCount,
+    approvedCount,
+    activeCount,
+    metGoals
+  ]);
+
+  const syncLabel =
+    latestSyncLabel.trim() || "Sem registro";
 
   return (
-    <section className={styles.grid}>
+    <section
+      className={styles.grid}
+      aria-label="Indicadores operacionais da G.A.M."
+    >
       <KPICard
         title="Prisões"
-        value={totalPrisons}
+        value={metrics.prisons}
         subtitle="Total no período"
         badge="Operação"
         badgeTone="blue"
         tone="blue"
-        progress={Math.min(100, totalPrisons)}
+        progress={clampPercentage(metrics.prisons)}
       />
 
       <KPICard
         title="Acompanhamentos"
-        value={totalPursuits}
+        value={metrics.pursuits}
         subtitle="Total no período"
         badge="QRU"
         badgeTone="green"
         tone="green"
-        progress={Math.min(100, totalPursuits)}
+        progress={clampPercentage(metrics.pursuits)}
       />
 
       <KPICard
         title="Pendências"
-        value={queueTotal}
-        subtitle={`${pendingCount} na fila • ${rejectedCount} rejeitada(s)`}
-        badge={queueTotal > 0 ? "Atenção" : "Livre"}
-        badgeTone={queueTotal > 0 ? "yellow" : "green"}
-        tone={queueTotal > 0 ? "yellow" : "green"}
-        progress={Math.min(100, queueTotal * 10)}
+        value={metrics.queueTotal}
+        subtitle={`${metrics.pending} na fila • ${metrics.rejected} rejeitada(s)`}
+        badge={
+          metrics.queueTotal > 0
+            ? "Atenção"
+            : "Livre"
+        }
+        badgeTone={
+          metrics.queueTotal > 0
+            ? "yellow"
+            : "green"
+        }
+        tone={
+          metrics.queueTotal > 0
+            ? "yellow"
+            : "green"
+        }
+        progress={clampPercentage(
+          metrics.queueTotal * 10
+        )}
       />
 
       <KPICard
         title="Efetividade"
-        value={`${effectiveness}%`}
-        subtitle={`${metGoals} meta(s) atingida(s)`}
+        value={`${metrics.effectiveness}%`}
+        subtitle={`${metrics.goalsMet} meta(s) atingida(s)`}
         badge="Semana"
         badgeTone="purple"
         tone="blue"
-        progress={effectiveness}
+        progress={metrics.effectiveness}
       />
 
       <KPICard
         title="GAM Sync"
-        value={`${syncProgress}%`}
-        subtitle={`Última sincronização: ${latestSyncLabel}`}
-        badge={syncProgress === 100 ? "Online" : "Processando"}
-        badgeTone={syncProgress === 100 ? "green" : "yellow"}
-        tone={syncProgress === 100 ? "green" : "yellow"}
-        progress={syncProgress}
+        value={`${metrics.syncProgress}%`}
+        subtitle={`Última sincronização: ${syncLabel}`}
+        badge={
+          metrics.syncProgress === 100
+            ? "Online"
+            : "Processando"
+        }
+        badgeTone={
+          metrics.syncProgress === 100
+            ? "green"
+            : "yellow"
+        }
+        tone={
+          metrics.syncProgress === 100
+            ? "green"
+            : "yellow"
+        }
+        progress={metrics.syncProgress}
       />
     </section>
   );
