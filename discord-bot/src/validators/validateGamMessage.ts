@@ -18,7 +18,10 @@ export function validateGamMessage(
     errors.push("Meta inválida.");
   }
 
-  if (!message.qru) {
+  if (
+    message.activity === "ACOMPANHAMENTO" &&
+    !message.qru
+  ) {
     errors.push("QRU não informado.");
   }
 

@@ -5,13 +5,14 @@ import {
 } from "discord.js";
 
 import { parseGamMessage } from "../parser/parseGamMessage";
+import { processGamMessage } from "../services/gamSyncService";
 
 function getChannelName(message: Message): string {
-  if (message.channel.isDMBased()) {
-    return "Mensagem privada";
+  if ("name" in message.channel) {
+    return message.channel.name ?? "canal desconhecido";
   }
 
-  return message.channel.name;
+  return "canal desconhecido";
 }
 
 function printRawMessageLog(message: Message): void {
@@ -20,7 +21,9 @@ function printRawMessageLog(message: Message): void {
   console.log("📨 Nova mensagem recebida");
   console.log(`Autor: ${message.author.tag}`);
   console.log(`Discord ID: ${message.author.id}`);
-  console.log(`Servidor: ${message.guild?.name ?? "Mensagem privada"}`);
+  console.log(
+    `Servidor: ${message.guild?.name ?? "Mensagem privada"}`,
+  );
   console.log(`Canal: ${getChannelName(message)}`);
   console.log(`Anexos: ${message.attachments.size}`);
   console.log("");
@@ -35,22 +38,32 @@ function printParsedMessageLog(message: Message): void {
     message.attachments.size > 0,
   );
 
-  const formattedMeta =
-    parsedMessage.metaCurrent !== null &&
-    parsedMessage.metaGoal !== null
-      ? `${parsedMessage.metaCurrent}/${parsedMessage.metaGoal}`
-      : "Não identificada";
-
   console.log("");
   console.log("==================================");
   console.log("📋 Relatório interpretado");
-  console.log(`Tipo: ${parsedMessage.activity ?? "Não identificado"}`);
-  console.log(`Meta: ${formattedMeta}`);
-  console.log(`QRU: ${parsedMessage.qru ?? "Não identificada"}`);
-  console.log(`Data: ${parsedMessage.date ?? "Não identificada"}`);
+  console.log(
+    `Tipo: ${parsedMessage.activity ?? "Não identificado"}`,
+  );
+
+  console.log(
+    `Meta: ${
+      parsedMessage.metaCurrent !== null &&
+      parsedMessage.metaGoal !== null
+        ? `${parsedMessage.metaCurrent}/${parsedMessage.metaGoal}`
+        : "Não identificada"
+    }`,
+  );
+
+  console.log(
+    `QRU: ${parsedMessage.qru ?? "Não identificada"}`,
+  );
+  console.log(
+    `Data: ${parsedMessage.date ?? "Não identificada"}`,
+  );
   console.log(
     `Anexo: ${parsedMessage.hasAttachment ? "Sim" : "Não"}`,
   );
+
   console.log("");
   console.log(`Autor: ${message.author.tag}`);
   console.log(`Discord ID: ${message.author.id}`);
@@ -89,5 +102,7 @@ export function registerMessageCreateEvent(
     }
 
     printParsedMessageLog(message);
+
+    await processGamMessage(message);
   });
 }

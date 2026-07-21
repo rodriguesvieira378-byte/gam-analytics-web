@@ -5,7 +5,11 @@ export interface Activity {
 
   type: ActivityType;
 
-  qru: string;
+  /**
+   * QRU é obrigatório apenas para ACOMPANHAMENTO.
+   * Em PRISÃO ele pode não existir.
+   */
+  qru: string | null;
 
   metaCurrent: number;
 

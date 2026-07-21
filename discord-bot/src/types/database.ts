@@ -1,6 +1,8 @@
 // src/types/database.ts
 
-export type DatabaseActivityType = 'PRISAO' | 'ACOMPANHAMENTO';
+export type DatabaseActivityType =
+  | "PRISAO"
+  | "ACOMPANHAMENTO";
 
 export interface OfficerRow {
   id: string;
@@ -24,7 +26,7 @@ export interface ActivityRow {
   id: string;
   officer_id: string | null;
   type: DatabaseActivityType;
-  qru: string;
+  qru: string | null;
   meta_current: number;
   meta_goal: number;
   activity_date: string;
@@ -37,7 +39,7 @@ export interface ActivityRow {
 export interface ActivityInsert {
   officer_id: string;
   type: DatabaseActivityType;
-  qru: string;
+  qru: string | null;
   meta_current: number;
   meta_goal: number;
   activity_date: string;
