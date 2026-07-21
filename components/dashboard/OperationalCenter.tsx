@@ -171,9 +171,9 @@ export function OperationalCenter({
         : "Online";
 
   return (
-    <section className="page operational-center">
-      <header className="hero operational-hero">
-        <div>
+    <section className={`page operational-center ${styles.operationalPage}`}>
+      <header className={`hero operational-hero ${styles.operationalHero}`}>
+        <div className={styles.heroCopy}>
           <span>CENTRO DE COMANDO</span>
           <h2>Centro Operacional G.A.M</h2>
           <p>
@@ -181,7 +181,7 @@ export function OperationalCenter({
           </p>
         </div>
 
-        <div className="filters">
+        <div className={styles.filters}>
           <select
             value={month}
             onChange={(event) =>
@@ -212,145 +212,106 @@ export function OperationalCenter({
         </div>
       </header>
 
-      <div className="grid kpis operational-kpis">
-        <article className="kpi-card">
+      <div className={`grid kpis operational-kpis ${styles.kpiGrid}`}>
+        <article className={`kpi-card ${styles.kpiCard} ${styles.kpiBlue}`}>
           <span>Prisões no período</span>
           <strong>{totalPrisons}</strong>
-          <small>
+          <small className={styles.kpiFooter}>
             {MONTHS[month - 1]} • Semana {week}
           </small>
         </article>
 
-        <article className="kpi-card">
+        <article className={`kpi-card ${styles.kpiCard} ${styles.kpiGreen}`}>
           <span>Acompanhamentos no período</span>
           <strong>{totalPursuits}</strong>
-          <small>
+          <small className={styles.kpiFooter}>
             {MONTHS[month - 1]} • Semana {week}
           </small>
         </article>
 
         <article
-          className={`kpi-card ${
+          className={`kpi-card ${styles.kpiCard} ${styles.kpiAmber} ${
             pendingCount > 0 ? "warning" : "good"
           }`}
         >
           <span>Fila do GAM Sync</span>
           <strong>{pendingCount}</strong>
-          <small>
+          <small className={styles.kpiFooter}>
             {approvedCount} aprovado(s) • {rejectedCount} rejeitado(s)
           </small>
         </article>
 
         <article
-          className={`kpi-card ${
+          className={`kpi-card ${styles.kpiCard} ${styles.kpiOnline} ${
             rejectedCount > 0 ? "bad" : "good"
           }`}
         >
-          <span>Sistema</span>
+          <span>Sistema online</span>
           <strong>{systemStatus}</strong>
-          <small>
+          <small className={styles.kpiFooter}>
             Última sincronização: {formatTime(latestSync)}
           </small>
         </article>
       </div>
 
-      <div className="grid two margin-top">
-        <article className="card">
-          <header className="card-head">
-            <div>
-              <span>FEED OPERACIONAL</span>
-              <h3>Operações recentes</h3>
+      <div className={`grid two margin-top operational-primary-grid ${styles.primaryGrid}`}>
+        <article className={`card operational-timeline-card ${styles.dashboardPanel}`}>
+        <header className={`card-head ${styles.panelHeader}`}>
+          <div>
+            <span>TIMELINE</span>
+            <h3>Últimos lançamentos</h3>
+          </div>
+          <small>{recentEntries.length} registro(s)</small>
+        </header>
+
+        <div className={`activity-list ${styles.activityList}`}>
+          {recentEntries.length === 0 ? (
+            <div className="empty">
+              Nenhum lançamento neste período.
             </div>
-            <small>{recentOperations.length} registro(s)</small>
-          </header>
+          ) : (
+            recentEntries.map((entry) => {
+              const garrison = getOfficerGarrison(
+                entry.officerId,
+                officers
+              );
 
-          <div className="activity-list">
-            {recentOperations.length === 0 ? (
-              <div className="empty">
-                Nenhuma operação sincronizada neste período.
-              </div>
-            ) : (
-              recentOperations.map((record) => {
-                const garrison = getOfficerGarrison(
-                  record.officerId,
-                  officers
-                );
+              return (
+                <div className={`activity ${styles.activityRow}`} key={entry.id}>
+                  <span className="dot" />
 
-                return (
-                  <div className="activity" key={record.id}>
-                    <span
-                      className={`dot ${
-                        record.status === "Rejeitado"
-                          ? "danger"
-                          : record.status === "Pendente"
-                            ? "warning"
-                            : ""
-                      }`}
-                    />
-
-                    <div>
-                      <strong>
-                        {getOfficerName(record.officerId, officers)}
-                      </strong>
-                      <small>
-                        {record.activityType} • Quantidade {record.quantity}
-                        {" • "}
-                        <span className={getGarrisonClass(garrison)}>
-                          {garrison}
-                        </span>
-                      </small>
-                    </div>
-
-                    <div className="activity-meta">
-                      <b>{formatTime(record.createdAt)}</b>
-                      <small>{record.status}</small>
-                    </div>
+                  <div>
+                    <strong>
+                      {getOfficerName(entry.officerId, officers)}
+                    </strong>
+                    <small>
+                      {getOfficerRegistration(
+                        entry.officerId,
+                        officers
+                      )}
+                      {" • "}
+                      <span className={getGarrisonClass(garrison)}>
+                        {garrison}
+                      </span>
+                    </small>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </article>
 
-        <article className="card">
-          <header className="card-head">
-            <div>
-              <span>SAÚDE DO SISTEMA</span>
-              <h3>Status dos serviços</h3>
-            </div>
-          </header>
-
-          <div className="activity-list">
-            {[
-              ["Supabase", "Online"],
-              ["Banco de dados", "Online"],
-              ["GAM Sync", "Online"],
-              ["Parser", "Online"],
-              ["Discord Bot", "Em desenvolvimento"]
-            ].map(([label, status]) => (
-              <div className="activity" key={label}>
-                <span
-                  className={`dot ${
-                    status === "Em desenvolvimento"
-                      ? "warning"
-                      : ""
-                  }`}
-                />
-
-                <div>
-                  <strong>{label}</strong>
-                  <small>{status}</small>
+                  <div className="activity-meta">
+                    <b>
+                      {entry.prisons} P • {entry.pursuits} A
+                    </b>
+                    <small>
+                      {entry.prisons + entry.pursuits} atividade(s)
+                    </small>
+                  </div>
                 </div>
+              );
+            })
+          )}
+        </div>
+      </article>
 
-                <b>{status === "Online" ? "●" : "○"}</b>
-              </div>
-            ))}
-          </div>
-        </article>
-      </div>
-
-      <div className="grid two margin-top">
-        <article className={`card ${styles["ranking-premium-card"]}`}>
+        <article className={`card ${styles["ranking-premium-card"]} operational-ranking-card ${styles.dashboardPanel}`}>
           <header className={`card-head ${styles["ranking-premium-header"]}`}>
             <div>
               <span>RANKING PREMIUM</span>
@@ -402,16 +363,111 @@ export function OperationalCenter({
             )}
           </div>
         </article>
+      </div>
 
-        <article className="card">
-          <header className="card-head">
+      <article className={`card margin-top operational-feed-card ${styles.dashboardPanel} ${styles.feedPanel}`}>
+          <header className={`card-head ${styles.panelHeader}`}>
+            <div>
+              <span>FEED OPERACIONAL</span>
+              <h3>Sincronizações e atividades recentes</h3>
+            </div>
+            <small>{recentOperations.length} registro(s)</small>
+          </header>
+
+          <div className={`activity-list ${styles.activityList}`}>
+            {recentOperations.length === 0 ? (
+              <div className="empty">
+                Nenhuma operação sincronizada neste período.
+              </div>
+            ) : (
+              recentOperations.map((record) => {
+                const garrison = getOfficerGarrison(
+                  record.officerId,
+                  officers
+                );
+
+                return (
+                  <div className={`activity ${styles.activityRow}`} key={record.id}>
+                    <span
+                      className={`dot ${
+                        record.status === "Rejeitado"
+                          ? "danger"
+                          : record.status === "Pendente"
+                            ? "warning"
+                            : ""
+                      }`}
+                    />
+
+                    <div>
+                      <strong>
+                        {getOfficerName(record.officerId, officers)}
+                      </strong>
+                      <small>
+                        {record.activityType} • Quantidade {record.quantity}
+                        {" • "}
+                        <span className={getGarrisonClass(garrison)}>
+                          {garrison}
+                        </span>
+                      </small>
+                    </div>
+
+                    <div className="activity-meta">
+                      <b>{formatTime(record.createdAt)}</b>
+                      <small>{record.status}</small>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </article>
+
+      <div className={`grid two margin-top operational-secondary-grid ${styles.secondaryGrid}`}>
+        <article className={`card operational-health-card ${styles.dashboardPanel}`}>
+          <header className={`card-head ${styles.panelHeader}`}>
+            <div>
+              <span>SAÚDE DO SISTEMA</span>
+              <h3>Status dos serviços</h3>
+            </div>
+          </header>
+
+          <div className={`activity-list ${styles.activityList}`}>
+            {[
+              ["Supabase", "Online"],
+              ["Banco de dados", "Online"],
+              ["GAM Sync", "Online"],
+              ["Parser", "Online"],
+              ["Discord Bot", "Em desenvolvimento"]
+            ].map(([label, status]) => (
+              <div className="activity" key={label}>
+                <span
+                  className={`dot ${
+                    status === "Em desenvolvimento"
+                      ? "warning"
+                      : ""
+                  }`}
+                />
+
+                <div>
+                  <strong>{label}</strong>
+                  <small>{status}</small>
+                </div>
+
+                <b>{status === "Online" ? "●" : "○"}</b>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className={`card operational-officers-card ${styles.dashboardPanel}`}>
+          <header className={`card-head ${styles.panelHeader}`}>
             <div>
               <span>SITUAÇÃO DO EFETIVO</span>
               <h3>Leitura operacional</h3>
             </div>
           </header>
 
-          <div className="activity-list">
+          <div className={`activity-list ${styles.activityList}`}>
             <div className="activity">
               <span className="dot" />
               <div>
@@ -468,62 +524,6 @@ export function OperationalCenter({
           </div>
         </article>
       </div>
-
-      <article className="card margin-top">
-        <header className="card-head">
-          <div>
-            <span>TIMELINE</span>
-            <h3>Últimos lançamentos</h3>
-          </div>
-          <small>{recentEntries.length} registro(s)</small>
-        </header>
-
-        <div className="activity-list">
-          {recentEntries.length === 0 ? (
-            <div className="empty">
-              Nenhum lançamento neste período.
-            </div>
-          ) : (
-            recentEntries.map((entry) => {
-              const garrison = getOfficerGarrison(
-                entry.officerId,
-                officers
-              );
-
-              return (
-                <div className="activity" key={entry.id}>
-                  <span className="dot" />
-
-                  <div>
-                    <strong>
-                      {getOfficerName(entry.officerId, officers)}
-                    </strong>
-                    <small>
-                      {getOfficerRegistration(
-                        entry.officerId,
-                        officers
-                      )}
-                      {" • "}
-                      <span className={getGarrisonClass(garrison)}>
-                        {garrison}
-                      </span>
-                    </small>
-                  </div>
-
-                  <div className="activity-meta">
-                    <b>
-                      {entry.prisons} P • {entry.pursuits} A
-                    </b>
-                    <small>
-                      {entry.prisons + entry.pursuits} atividade(s)
-                    </small>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </article>
     </section>
   );
 }

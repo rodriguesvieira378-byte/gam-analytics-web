@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { GamSyncPanel } from "@/lib/gam-sync/GamSyncPanel";
-import { OperationalCenterV2 } from "./operational-center";
+import OperationalCenter from "./dashboard/OperationalCenter";
 import { OfficersModule } from "./officers";
 import { OperationsModule } from "./operations";
 import { ReportsModule } from "./reports";
@@ -784,7 +784,7 @@ function LoginScreen({
             <div>
               <Image
                 className="login-brand-logo"
-                src="/gam-logo.svg"
+                src="/gam-logo.png"
                 alt="GAM Analytics"
                 width={920}
                 height={260}
@@ -882,7 +882,7 @@ function LoginScreen({
           <div>
             <Image
               className="login-brand-logo"
-              src="/gam-logo.svg"
+              src="/gam-logo.png"
               alt="GAM Analytics"
               width={920}
               height={260}
@@ -1184,7 +1184,7 @@ function PasswordRecoveryGate({
           <div>
             <Image
               className="login-brand-logo"
-              src="/gam-logo.svg"
+              src="/gam-logo.png"
               alt="GAM Analytics"
               width={920}
               height={260}
@@ -2823,7 +2823,7 @@ function GamAppContent() {
           ) : (
             <>
               {screen === "dashboard" && (
-                <OperationalCenterV2
+                <OperationalCenter
                   metrics={metrics}
                   officers={officers}
                   entries={entries}
@@ -4880,7 +4880,7 @@ function ReportCenter({
         <header className="professional-report-header">
           <div className="professional-report-brand">
             <Image
-              src="/gam-logo.svg"
+              src="/gam-logo.png"
               alt="GAM Analytics"
               width={920}
               height={260}
