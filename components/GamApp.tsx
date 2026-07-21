@@ -2678,7 +2678,7 @@ function GamAppContent() {
         <div className="side-brand">
           <Image
             className="side-brand-icon"
-            src="/icon.svg"
+            src="/gam-shield-256.png"
             alt=""
             aria-hidden="true"
             width={512}
