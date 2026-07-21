@@ -13,8 +13,17 @@ export type AccessEventType =
   | "LOGOUT"
   | "SESSAO_EXPIRADA";
 
-export type AuditAction = "INSERT" | "UPDATE" | "DELETE" | string;
-export type NotificationSeverity = "info" | "success" | "warning" | "critical";
+export type AuditAction =
+  | "INSERT"
+  | "UPDATE"
+  | "DELETE"
+  | string;
+
+export type NotificationSeverity =
+  | "info"
+  | "success"
+  | "warning"
+  | "critical";
 
 export type NotificationCategory =
   | "aprovacao"
@@ -125,6 +134,17 @@ export interface Officer {
   pursuitGoal: number;
   photoUrl?: string;
   photoPath?: string;
+
+  /**
+   * ID numérico do usuário no Discord.
+   * Este campo será utilizado pelo GAM Sync para localizar o integrante.
+   */
+  discordId?: string;
+
+  /**
+   * Campo antigo, mantido temporariamente para compatibilidade.
+   * Será removido depois da atualização completa do cadastro.
+   */
   discordUrl?: string;
 }
 
@@ -148,7 +168,13 @@ export interface DiscordRecord {
   week: number;
   activityType: DiscordActivityType;
   quantity: number;
+
+  /**
+   * Link da mensagem usada como comprovação.
+   * Este campo é diferente do ID pessoal do integrante.
+   */
   discordUrl: string;
+
   note: string;
   status: DiscordRecordStatus;
   submittedBy: string;

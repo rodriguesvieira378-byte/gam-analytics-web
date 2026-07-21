@@ -9,6 +9,12 @@ import {
   useMemo,
   useState
 } from "react";
+import {
+  createGamRealtimeManager,
+  type GamRealtimeConnectionStatus,
+  type GamRealtimeEvent,
+  type GamRealtimeTable
+} from "@/lib/realtime/realtime-manager";
 
 const STORAGE_KEY = "gam-analytics:selected-period";
 
@@ -20,6 +26,14 @@ export interface GamPeriod {
 export interface GamSyncState {
   lastSyncAt: string | null;
   syncing: boolean;
+  realtimeStatus: GamRealtimeConnectionStatus;
+  realtimeRevision: number;
+  lastRealtimeEventAt: string | null;
+  lastRealtimeTable: GamRealtimeTable | null;
+  lastRealtimeEventType:
+    | GamRealtimeEvent["eventType"]
+    | null;
+  realtimeError: string | null;
 }
 
 export interface GamAppContextValue {
@@ -128,7 +142,13 @@ export function GamAppProvider({
   const [sync, setSync] =
     useState<GamSyncState>({
       lastSyncAt: null,
-      syncing: false
+      syncing: false,
+      realtimeStatus: "connecting",
+      realtimeRevision: 0,
+      lastRealtimeEventAt: null,
+      lastRealtimeTable: null,
+      lastRealtimeEventType: null,
+      realtimeError: null
     });
 
   useEffect(() => {
@@ -142,6 +162,48 @@ export function GamAppProvider({
   useEffect(() => {
     saveStoredPeriod(period);
   }, [period]);
+
+  useEffect(() => {
+    const manager = createGamRealtimeManager({
+      onEvent: (event) => {
+        setSync((current) => ({
+          ...current,
+          realtimeRevision:
+            current.realtimeRevision + 1,
+          lastRealtimeEventAt:
+            event.receivedAt,
+          lastRealtimeTable:
+            event.table,
+          lastRealtimeEventType:
+            event.eventType,
+          realtimeError: null
+        }));
+      },
+      onStatusChange: (status) => {
+        setSync((current) => ({
+          ...current,
+          realtimeStatus: status,
+          realtimeError:
+            status === "error"
+              ? current.realtimeError
+              : null
+        }));
+      },
+      onError: (error) => {
+        setSync((current) => ({
+          ...current,
+          realtimeStatus: "error",
+          realtimeError: error.message
+        }));
+      }
+    });
+
+    manager.start();
+
+    return () => {
+      void manager.stop();
+    };
+  }, []);
 
   const setMonth = useCallback(
     (month: number) => {
@@ -205,10 +267,11 @@ export function GamAppProvider({
 
   const finishSync = useCallback(
     (syncedAt = new Date().toISOString()) => {
-      setSync({
+      setSync((current) => ({
+        ...current,
         syncing: false,
         lastSyncAt: syncedAt
-      });
+      }));
     },
     []
   );

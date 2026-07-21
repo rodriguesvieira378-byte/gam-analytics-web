@@ -161,6 +161,42 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
+function formatLastSync(value: string, now: number) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "data indisponível";
+  }
+
+  const elapsed = Math.max(0, now - date.getTime());
+
+  if (elapsed < 60_000) {
+    return "agora mesmo";
+  }
+
+  const today = new Date(now);
+  const isToday =
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+
+  if (isToday) {
+    return `hoje às ${new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date)}`;
+  }
+
+  return `${new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(date)} às ${new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date)}`;
+}
+
 function auditModuleLabel(entity: string) {
   const labels: Record<string, string> = {
     officers: "Efetivo",
@@ -314,6 +350,8 @@ const AUDIT_FIELD_LABELS: Record<string, string> = {
   activity_type: "Tipo",
   activityType: "Tipo",
   quantity: "Quantidade",
+  discord_id: "ID do Discord",
+  discordId: "ID do Discord",
   discord_url: "Link Discord",
   discordUrl: "Link Discord",
   rejection_reason: "Motivo da rejeição",
@@ -1381,6 +1419,7 @@ function GamAppContent() {
   const [sessionReady, setSessionReady] = useState(false);
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [syncClock, setSyncClock] = useState(() => Date.now());
   const [year] = useState(() => new Date().getFullYear());
   const {
     period: { month, week },
@@ -1701,6 +1740,14 @@ function GamAppContent() {
     };
   }, []);
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setSyncClock(Date.now());
+    }, 30_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const refreshSystemData = useCallback(
     async (showLoader = false) => {
       if (!access) return;
@@ -1765,6 +1812,91 @@ function GamAppContent() {
   useEffect(() => {
     void refreshSystemData(true);
   }, [refreshSystemData]);
+
+  useEffect(() => {
+    if (
+      !access ||
+      sync.realtimeRevision === 0 ||
+      !sync.lastRealtimeTable
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    async function refreshRealtimeModule() {
+      try {
+        switch (sync.lastRealtimeTable) {
+          case "officers": {
+            const data = await loadOfficers();
+            if (active) setOfficers(data);
+            break;
+          }
+
+          case "weekly_entries": {
+            const data = await loadEntries();
+            if (active) setEntries(data);
+            break;
+          }
+
+          case "discord_records": {
+            const data = await loadDiscordRecords();
+            if (active) setDiscordRecords(data);
+            break;
+          }
+
+          case "monthly_closures": {
+            const data = await loadClosures();
+            if (active) setClosures(data);
+            break;
+          }
+
+          case "gam_members": {
+            const data = await loadGamMembers();
+            if (active) setMembers(data);
+            break;
+          }
+
+          case "notification_reads": {
+            const data = await loadNotificationReads();
+            if (active) setNotificationReads(data);
+            break;
+          }
+
+          default:
+            break;
+        }
+
+        if (active) {
+          finishSync(sync.lastRealtimeEventAt ?? undefined);
+        }
+      } catch (cause) {
+        if (!active) return;
+
+        finishSync();
+
+        setToast({
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Falha ao atualizar o módulo em tempo real.",
+          kind: "error"
+        });
+      }
+    }
+
+    void refreshRealtimeModule();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    access,
+    finishSync,
+    sync.lastRealtimeEventAt,
+    sync.lastRealtimeTable,
+    sync.realtimeRevision
+  ]);
 
   useEffect(() => {
     if (!access) return;
@@ -1948,7 +2080,7 @@ function GamAppContent() {
       .trim()
       .toUpperCase();
     const name = String(form.get("name") ?? "").trim();
-    const discordUrl = String(form.get("discordUrl") ?? "").trim();
+    const discordId = String(form.get("discordId") ?? "").trim();
 
     if (!registration || !name) {
       notify("Preencha matrícula e nome.", "error");
@@ -1967,7 +2099,8 @@ function GamAppContent() {
         pursuitGoal: role === "Oficial GAM" ? 6 : 12,
         photoUrl: editingOfficer?.photoUrl,
         photoPath: editingOfficer?.photoPath,
-        discordUrl: discordUrl || undefined
+        discordId: discordId || undefined,
+        discordUrl: editingOfficer?.discordUrl
       });
 
       setOfficers((current) => {
@@ -2866,14 +2999,11 @@ function GamAppContent() {
                 {sync.syncing
                   ? "Atualizando dados..."
                   : sync.lastSyncAt
-                    ? `Atualizado às ${new Intl.DateTimeFormat(
-                        "pt-BR",
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        }
-                      ).format(new Date(sync.lastSyncAt))}`
-                    : "Sincronizando..."}
+                    ? `Última atualização: ${formatLastSync(
+                        sync.lastSyncAt,
+                        syncClock
+                      )}`
+                    : "Última atualização: aguardando sincronização"}
               </span>
             </div>
 
@@ -3025,12 +3155,14 @@ function GamAppContent() {
                         <label className="field full">
                           <span>ID do Discord (opcional)</span>
                           <input
-                            name="discordUrl"
+                            name="discordId"
                             type="text"
                             inputMode="numeric"
-                            pattern="[0-9]{10,25}"
+                            pattern="[0-9]{17,20}"
+                            minLength={17}
+                            maxLength={20}
                             placeholder="Ex.: 123456789012345678"
-                            defaultValue={editingOfficer.discordUrl ?? ""}
+                            defaultValue={editingOfficer.discordId ?? ""}
                             autoComplete="off"
                           />
                         </label>
@@ -3068,7 +3200,7 @@ function GamAppContent() {
                         status: "Ativo",
                         prisonGoal: 6,
                         pursuitGoal: 12,
-                        discordUrl: ""
+                        discordId: ""
                       })
                     }
                     onEditOfficer={setEditingOfficer}
@@ -3520,8 +3652,8 @@ function OfficerProfileModal({
         <div className="officer-profile-links">
           <div>
             <span>Discord</span>
-            {officer.discordUrl ? (
-              <a href={officer.discordUrl} target="_blank" rel="noreferrer">Abrir perfil ou referência ↗</a>
+            {officer.discordId ? (
+              <strong>{officer.discordId}</strong>
             ) : (
               <strong>Não informado</strong>
             )}
