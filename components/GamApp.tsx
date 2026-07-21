@@ -641,6 +641,89 @@ function Selectors({
   );
 }
 
+
+type LoginIconName = "lock" | "mail" | "user" | "eye" | "eyeOff" | "arrow" | "key";
+
+function LoginIcon({ name, size = 22 }: { name: LoginIconName; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true
+  };
+
+  if (name === "lock") {
+    return (
+      <svg {...common}>
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+        <path d="M12 14v2.5" />
+      </svg>
+    );
+  }
+
+  if (name === "mail") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m4 7 8 6 8-6" />
+      </svg>
+    );
+  }
+
+  if (name === "user") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+      </svg>
+    );
+  }
+
+  if (name === "eye") {
+    return (
+      <svg {...common}>
+        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+        <circle cx="12" cy="12" r="2.5" />
+      </svg>
+    );
+  }
+
+  if (name === "eyeOff") {
+    return (
+      <svg {...common}>
+        <path d="m3 3 18 18" />
+        <path d="M10.6 10.7a2.5 2.5 0 0 0 3.5 3.5" />
+        <path d="M9.9 5.2A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a16.8 16.8 0 0 1-2.1 3" />
+        <path d="M6.2 6.3C3.7 8.2 2.5 12 2.5 12S6 19 12 19c1 0 2-.2 2.8-.5" />
+      </svg>
+    );
+  }
+
+  if (name === "arrow") {
+    return (
+      <svg {...common}>
+        <path d="M5 12h14" />
+        <path d="m14 7 5 5-5 5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <circle cx="8" cy="15" r="3" />
+      <path d="m10.5 13.5 7-7" />
+      <path d="m15 6 3 3" />
+      <path d="m17 4 3 3" />
+    </svg>
+  );
+}
+
 type LoginMode = "login" | "recovery" | "signup";
 
 function LoginScreen({
@@ -658,6 +741,7 @@ function LoginScreen({
   const [signupCompleted, setSignupCompleted] = useState(false);
   const [signupNeedsConfirmation, setSignupNeedsConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   function changeMode(nextMode: LoginMode) {
     setMode(nextMode);
@@ -876,192 +960,204 @@ function LoginScreen({
   }
 
   return (
-    <main className="login">
-      <section className="login-card">
-        <div className="login-hero">
-          <div>
+    <main className="login login-premium">
+      <section className="login-shell">
+        <aside className="login-showcase" aria-label="Centro Operacional G.A.M.">
+          <div className="login-showcase-watermark" aria-hidden="true">
             <Image
-              className="login-brand-logo"
-              src="/gam-logo.png"
-              alt="GAM Analytics"
-              width={920}
-              height={260}
+              src="/gam-shield-512.png"
+              alt=""
+              width={720}
+              height={720}
+            />
+          </div>
+
+          <div className="login-showcase-content">
+            <Image
+              className="login-shield"
+              src="/gam-shield-512.png"
+              alt="Escudo da G.A.M."
+              width={512}
+              height={512}
               priority
             />
-            <h1 className="sr-only">GAM Analytics Web</h1>
-            <p>
-              Gestão operacional da unidade G.A.M com lançamentos semanais,
-              acompanhamento do efetivo, inteligência e relatórios.
-            </p>
-          </div>
 
-          <div className="hero-tags">
-            <span className="tag">OÁSIS RP</span>
-            <span className="tag">Acesso privado</span>
-            <span className="tag">Desktop e celular</span>
-            <span className="tag">
-              {isDemoMode ? "Modo demonstração" : "Banco online"}
-            </span>
+            <div className="login-identity">
+              <span className="login-identity-kicker">CENTRO OPERACIONAL</span>
+              <h1>G<span>.</span>A<span>.</span>M<span>.</span></h1>
+              <strong>INTELIGÊNCIA OPERACIONAL</strong>
+            </div>
+
+            <div className="login-showcase-divider" aria-hidden="true" />
+
+            <p className="login-showcase-slogan">
+              <span aria-hidden="true">♢</span>
+              Gestão estratégica. Decisões com precisão.
+            </p>
+
+            <div className="login-showcase-tags" aria-label="Informações do sistema">
+              <span>OÁSIS RP</span>
+              <span>Acesso privado</span>
+              <span>Desktop e celular</span>
+              <span>{isDemoMode ? "Modo demonstração" : "Banco online"}</span>
+            </div>
           </div>
-        </div>
+        </aside>
 
         <form
-          className="login-form"
+          className="login-panel"
           onSubmit={submitHandler}
           autoComplete="off"
         >
-          <h2>
-            {mode === "recovery"
-              ? "Recuperar senha"
-              : mode === "signup"
-                ? "Solicitar acesso"
-                : "Acesso ao GAM Analytics"}
-          </h2>
+          <div className="login-panel-lock" aria-hidden="true"><LoginIcon name="lock" size={34} /></div>
 
-          <p>
-            {mode === "recovery"
-              ? "Informe seu e-mail para receber o link de redefinição."
-              : mode === "signup"
-                ? "Crie sua conta. O acesso será liberado após aprovação administrativa."
-                : "Entre com o usuário autorizado pela administração da unidade."}
-          </p>
+          <header className="login-panel-header">
+            <h2>
+              {mode === "recovery"
+                ? "Recuperar senha"
+                : mode === "signup"
+                  ? "Solicitar acesso"
+                  : "Acesso ao GAM Analytics"}
+            </h2>
+            <p>
+              {mode === "recovery"
+                ? "Informe seu e-mail para receber o link de redefinição."
+                : mode === "signup"
+                  ? "Crie sua conta. O acesso será liberado após aprovação administrativa."
+                  : "Entre com o usuário autorizado pela administração da unidade."}
+            </p>
+          </header>
 
-          {mode === "signup" && (
-            <label className="field">
-              <span>Nome exibido</span>
-              <input
-                value={displayName}
-                onChange={(event) =>
-                  setDisplayName(event.target.value)
-                }
-                placeholder="Ex.: Cássio Vieira"
-                required
-                autoComplete="name"
-              />
+          <div className="login-panel-fields">
+            {mode === "signup" && (
+              <label className="login-premium-field">
+                <span>Nome exibido</span>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon" aria-hidden="true"><LoginIcon name="user" size={21} /></span>
+                  <input
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    placeholder="Ex.: Cássio Vieira"
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+              </label>
+            )}
+
+            <label className="login-premium-field">
+              <span>E-mail</span>
+              <div className="login-input-wrap">
+                <span className="login-input-icon" aria-hidden="true"><LoginIcon name="mail" size={21} /></span>
+                <input
+                  type="email"
+                  name="gam-access-email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              </div>
             </label>
-          )}
 
-          <label className="field">
-            <span>E-mail</span>
-            <input
-              type="email"
-              name="gam-access-email"
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
-              required
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-            />
-          </label>
+            {mode !== "recovery" && (
+              <label className="login-premium-field">
+                <span>Senha</span>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon" aria-hidden="true"><LoginIcon name="lock" size={21} /></span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    minLength={mode === "signup" ? 8 : undefined}
+                    required
+                    autoComplete={
+                      mode === "signup" ? "new-password" : "current-password"
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="login-password-toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    <LoginIcon name={showPassword ? "eyeOff" : "eye"} size={21} />
+                  </button>
+                </div>
+              </label>
+            )}
 
-          {mode !== "recovery" && (
-            <label className="field">
-              <span>Senha</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
-                }
-                minLength={mode === "signup" ? 8 : undefined}
-                required
-                autoComplete={
-                  mode === "signup"
-                    ? "new-password"
-                    : "current-password"
-                }
-              />
-            </label>
-          )}
+            {mode === "signup" && (
+              <label className="login-premium-field">
+                <span>Confirmar senha</span>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon" aria-hidden="true"><LoginIcon name="lock" size={21} /></span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmation}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                    minLength={8}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </label>
+            )}
+          </div>
 
-          {mode === "signup" && (
-            <label className="field">
-              <span>Confirmar senha</span>
-              <input
-                type="password"
-                value={confirmation}
-                onChange={(event) =>
-                  setConfirmation(event.target.value)
-                }
-                minLength={8}
-                required
-                autoComplete="new-password"
-              />
-            </label>
-          )}
-
-          {error && (
-            <div className="form-error">
-              {error}
-            </div>
-          )}
-
-          {message && (
-            <div className="demo-note">
-              {message}
-            </div>
-          )}
+          {error && <div className="form-error">{error}</div>}
+          {message && <div className="demo-note">{message}</div>}
 
           {mode === "login" ? (
-            <div
-              style={{
-                display: "grid",
-                gap: 10,
-                marginTop: 2
-              }}
-            >
+            <div className="login-panel-actions">
+              <button className="login-primary-action" type="submit" disabled={loading}>
+                <span>{loading ? "Entrando..." : "Entrar no sistema"}</span>
+                <b aria-hidden="true"><LoginIcon name="arrow" size={25} /></b>
+              </button>
+
+              <div className="login-separator"><span>ou</span></div>
+
               <button
                 type="button"
-                className="btn secondary"
+                className="login-secondary-action"
                 onClick={() => changeMode("signup")}
               >
-                Criar conta
-              </button>
-
-              <button
-                className="btn"
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? "Entrando..." : "Entrar no sistema"}
+                <span className="login-action-content"><LoginIcon name="user" size={20} />Criar conta</span>
               </button>
 
               <button
                 type="button"
-                className="btn ghost"
+                className="login-recovery-action"
                 onClick={() => changeMode("recovery")}
               >
-                Esqueci minha senha
+                <span className="login-action-content"><LoginIcon name="lock" size={18} />Esqueci minha senha</span>
               </button>
             </div>
           ) : (
-            <>
-              <button
-                className="btn"
-                type="submit"
-                disabled={loading}
-              >
-                {loading
-                  ? mode === "recovery"
-                    ? "Enviando..."
-                    : "Criando solicitação..."
-                  : mode === "recovery"
-                    ? "Enviar link de recuperação"
-                    : "Criar conta e solicitar acesso"}
+            <div className="login-panel-actions">
+              <button className="login-primary-action" type="submit" disabled={loading}>
+                <span>
+                  {loading
+                    ? mode === "recovery"
+                      ? "Enviando..."
+                      : "Criando solicitação..."
+                    : mode === "recovery"
+                      ? "Enviar link de recuperação"
+                      : "Criar conta e solicitar acesso"}
+                </span>
+                <b aria-hidden="true"><LoginIcon name="arrow" size={25} /></b>
               </button>
 
               <button
                 type="button"
-                className="btn ghost"
-                style={{ marginTop: 10 }}
+                className="login-secondary-action"
                 onClick={() => changeMode("login")}
               >
                 Voltar para o login
               </button>
-            </>
+            </div>
           )}
 
           {isDemoMode && (
