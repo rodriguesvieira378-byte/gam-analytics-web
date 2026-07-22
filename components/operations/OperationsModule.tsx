@@ -18,7 +18,7 @@ import { Select } from "@/components/ui/Select";
 import styles from "./OperationsModule.module.css";
 
 const QRU_CATEGORIES = [
-  "Caixa Eletrônico",
+  "caixa eletronico",
   "Banco Central",
   "Joalheria",
   "Registradora",
@@ -31,7 +31,7 @@ const QRU_CATEGORIES = [
 type QruCategory = (typeof QRU_CATEGORIES)[number];
 type TypeFilter = "todos" | DiscordActivityType;
 type StatusFilter = "todos" | DiscordRecord["status"];
-type QruFilter = "todas" | QruCategory | "Não identificado";
+type QruFilter = "todas" | QruCategory | "caixa eletronico";
 
 export interface OperationsModuleProps {
   entries: WeeklyEntry[];
@@ -52,12 +52,12 @@ function normalizeText(value: string) {
 
 function getRecordQru(
   record: DiscordRecord
-): QruCategory | "Não identificado" {
+): QruCategory | "caixa eletronico" {
   if (record.activityType !== "Acompanhamento") {
-    return "Não identificado";
+    return "caixa eletronico";
   }
 
-  return record.qru ?? "Não identificado";
+  return record.qru ?? "caixa eletronico";
 }
 
 function formatDate(value?: string | null) {
@@ -247,7 +247,7 @@ export function OperationsModule({
         .filter(
           ({ record, qru }) =>
             record.activityType === "Acompanhamento" &&
-            qru === "Não identificado"
+            qru === "caixa eletronico"
         )
         .reduce(
           (sum, { record }) => sum + record.quantity,

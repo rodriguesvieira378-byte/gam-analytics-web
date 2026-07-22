@@ -6,7 +6,7 @@ export type DiscordActivityType = "Prisão" | "Acompanhamento";
 export type DiscordRecordStatus = "Pendente" | "Aprovado" | "Rejeitado";
 
 export type DiscordQru =
-  | "ATM"
+  | "caixa eletronico"
   | "Banco Central"
   | "Joalheria"
   | "Registradora"
