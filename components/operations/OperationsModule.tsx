@@ -18,7 +18,7 @@ import { Select } from "@/components/ui/Select";
 import styles from "./OperationsModule.module.css";
 
 const QRU_CATEGORIES = [
-  "caixa eletronico",
+  "Caixa Eletrônico",
   "Banco Central",
   "Joalheria",
   "Registradora",
@@ -31,7 +31,7 @@ const QRU_CATEGORIES = [
 type QruCategory = (typeof QRU_CATEGORIES)[number];
 type TypeFilter = "todos" | DiscordActivityType;
 type StatusFilter = "todos" | DiscordRecord["status"];
-type QruFilter = "todas" | QruCategory | "caixa eletronico";
+type QruFilter = "todas" | QruCategory | "Não identificado";
 
 export interface OperationsModuleProps {
   entries: WeeklyEntry[];
@@ -52,12 +52,12 @@ function normalizeText(value: string) {
 
 function getRecordQru(
   record: DiscordRecord
-): QruCategory | "caixa eletronico" {
+): QruCategory | "Não identificado" {
   if (record.activityType !== "Acompanhamento") {
-    return "caixa eletronico";
+    return "Não identificado";
   }
 
-  return record.qru ?? "caixa eletronico";
+  return record.qru ?? "Não identificado";
 }
 
 function formatDate(value?: string | null) {
@@ -100,13 +100,6 @@ export function OperationsModule({
   const [officerFilter, setOfficerFilter] =
     useState("todos");
 
-  /*
-   * Fonte operacional oficial:
-   * activities -> WeeklyEntry[]
-   *
-   * Prisões, acompanhamentos e totais da semana devem sempre
-   * ser calculados a partir desta coleção.
-   */
   const periodEntries = useMemo(
     () =>
       entries.filter(
@@ -117,13 +110,6 @@ export function OperationsModule({
     [entries, month, week]
   );
 
-  /*
-   * Fonte de comprovação e auditoria:
-   * discord_records -> DiscordRecord[]
-   *
-   * Mantida apenas para QRU, status, link da mensagem e
-   * histórico detalhado das comprovações.
-   */
   const periodRecords = useMemo(
     () =>
       records.filter(
@@ -247,7 +233,7 @@ export function OperationsModule({
         .filter(
           ({ record, qru }) =>
             record.activityType === "Acompanhamento" &&
-            qru === "caixa eletronico"
+            qru === "Não identificado"
         )
         .reduce(
           (sum, { record }) => sum + record.quantity,
