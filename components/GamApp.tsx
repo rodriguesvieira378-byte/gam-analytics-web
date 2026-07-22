@@ -66,6 +66,7 @@ import type {
   AppRole,
   AuditLog,
   DiscordActivityType,
+  DiscordQru,
   DiscordRecord,
   DiscordRecordInput,
   GamMember,
@@ -113,6 +114,7 @@ type DiscordBatchDraft = {
   officerId: string;
   activityType: DiscordActivityType;
   quantity: number;
+  qru: DiscordQru | "";
   discordUrl: string;
   note: string;
 };
@@ -129,6 +131,7 @@ function createBatchDraft(id = createId("batch")): DiscordBatchDraft {
     officerId: "",
     activityType: "Prisão",
     quantity: 1,
+    qru: "",
     discordUrl: "",
     note: ""
   };
@@ -1690,6 +1693,9 @@ function GamAppContent() {
         const normalizedUrl = normalizedByRow.get(row.id) ?? "";
 
         if (!row.officerId) errors.push("Selecione o integrante");
+        if (row.activityType === "Acompanhamento" && !row.qru) {
+          errors.push("Selecione a QRU");
+        }
         if (!Number.isInteger(row.quantity) || row.quantity < 1) {
           errors.push("Quantidade inválida");
         }
@@ -1812,91 +1818,6 @@ function GamAppContent() {
   useEffect(() => {
     void refreshSystemData(true);
   }, [refreshSystemData]);
-
-  useEffect(() => {
-    if (
-      !access ||
-      sync.realtimeRevision === 0 ||
-      !sync.lastRealtimeTable
-    ) {
-      return;
-    }
-
-    let active = true;
-
-    async function refreshRealtimeModule() {
-      try {
-        switch (sync.lastRealtimeTable) {
-          case "officers": {
-            const data = await loadOfficers();
-            if (active) setOfficers(data);
-            break;
-          }
-
-          case "weekly_entries": {
-            const data = await loadEntries();
-            if (active) setEntries(data);
-            break;
-          }
-
-          case "discord_records": {
-            const data = await loadDiscordRecords();
-            if (active) setDiscordRecords(data);
-            break;
-          }
-
-          case "monthly_closures": {
-            const data = await loadClosures();
-            if (active) setClosures(data);
-            break;
-          }
-
-          case "gam_members": {
-            const data = await loadGamMembers();
-            if (active) setMembers(data);
-            break;
-          }
-
-          case "notification_reads": {
-            const data = await loadNotificationReads();
-            if (active) setNotificationReads(data);
-            break;
-          }
-
-          default:
-            break;
-        }
-
-        if (active) {
-          finishSync(sync.lastRealtimeEventAt ?? undefined);
-        }
-      } catch (cause) {
-        if (!active) return;
-
-        finishSync();
-
-        setToast({
-          message:
-            cause instanceof Error
-              ? cause.message
-              : "Falha ao atualizar o módulo em tempo real.",
-          kind: "error"
-        });
-      }
-    }
-
-    void refreshRealtimeModule();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    access,
-    finishSync,
-    sync.lastRealtimeEventAt,
-    sync.lastRealtimeTable,
-    sync.realtimeRevision
-  ]);
 
   useEffect(() => {
     if (!access) return;
@@ -2288,6 +2209,7 @@ function GamAppContent() {
       form.get("activityType") ?? ""
     ) as DiscordActivityType;
     const quantity = Number(form.get("quantity") ?? 1);
+    const qru = String(form.get("qru") ?? "").trim() as DiscordQru | "";
     const discordUrl = String(form.get("discordUrl") ?? "").trim();
     const note = String(form.get("note") ?? "").trim();
 
@@ -2301,6 +2223,11 @@ function GamAppContent() {
       return;
     }
 
+    if (activityType === "Acompanhamento" && !qru) {
+      notify("Selecione a QRU do acompanhamento.", "error");
+      return;
+    }
+
     try {
       const result = await saveDiscordRecord({
         officerId,
@@ -2309,6 +2236,10 @@ function GamAppContent() {
         week,
         activityType,
         quantity,
+        qru:
+          activityType === "Acompanhamento"
+            ? (qru as DiscordQru)
+            : null,
         discordUrl,
         note
       });
@@ -2335,9 +2266,19 @@ function GamAppContent() {
     value: string | number
   ) {
     setDiscordBatchRows((current) =>
-      current.map((row) =>
-        row.id === id ? { ...row, [field]: value } : row
-      )
+      current.map((row) => {
+        if (row.id !== id) return row;
+
+        if (field === "activityType") {
+          return {
+            ...row,
+            activityType: value as DiscordActivityType,
+            qru: value === "Acompanhamento" ? row.qru : ""
+          };
+        }
+
+        return { ...row, [field]: value };
+      })
     );
   }
 
@@ -2387,6 +2328,10 @@ function GamAppContent() {
         week,
         activityType: row.activityType,
         quantity: row.quantity,
+        qru:
+          row.activityType === "Acompanhamento"
+            ? (row.qru as DiscordQru)
+            : null,
         discordUrl:
           validationByRow.get(row.id)?.normalizedUrl ?? row.discordUrl,
         note: row.note.trim()
@@ -3375,6 +3320,7 @@ function GamAppContent() {
               {screen === "discord" && (
                 <>
                   <OperationsModule
+                    entries={entries}
                     records={discordRecords}
                     officers={officers}
                     month={month}
@@ -3389,7 +3335,7 @@ function GamAppContent() {
                     year={year}
                     month={month}
                     week={week}
-                    onProcessed={(savedEntry) => {
+                    onProcessed={async (savedEntry) => {
                       setEntries((current) => {
                         const index = current.findIndex(
                           (item) =>
@@ -3407,6 +3353,22 @@ function GamAppContent() {
                         next[index] = savedEntry;
                         return next;
                       });
+
+                      try {
+                        const updatedDiscordRecords =
+                          await loadDiscordRecords();
+
+                        setDiscordRecords(
+                          updatedDiscordRecords
+                        );
+                      } catch (cause) {
+                        notify(
+                          cause instanceof Error
+                            ? cause.message
+                            : "A operação foi processada, mas não foi possível atualizar as comprovações.",
+                          "error"
+                        );
+                      }
 
                       void refreshAuditLogs();
                       notify("Mensagem processada pelo GAM Sync.");

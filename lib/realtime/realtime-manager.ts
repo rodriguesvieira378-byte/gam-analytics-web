@@ -2,6 +2,7 @@ import type {
   RealtimeChannel,
   RealtimePostgresChangesPayload
 } from "@supabase/supabase-js";
+
 import {
   getSupabaseClient,
   isDemoMode
@@ -9,7 +10,7 @@ import {
 
 export const GAM_REALTIME_TABLES = [
   "officers",
-  "weekly_entries",
+  "activities",
   "discord_records",
   "monthly_closures",
   "gam_members",

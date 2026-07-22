@@ -1,5 +1,6 @@
 import { INITIAL_ENTRIES, INITIAL_OFFICERS } from "@/lib/constants";
 import { createId } from "@/lib/calculations";
+import { loadActivityEntries } from "@/lib/activityRepository";
 import { getSupabaseClient, isDemoMode } from "@/lib/supabase";
 import type {
   AppRole,
@@ -9,6 +10,7 @@ import type {
   DiscordRecordInput,
   DiscordRecordSaveResult,
   DiscordRecordStatus,
+  DiscordQru,
   GamMember,
   MonthClosure,
   NotificationRead,
@@ -934,31 +936,16 @@ export async function loadOfficers(): Promise<Officer[]> {
 export async function loadEntries(): Promise<WeeklyEntry[]> {
   if (isDemoMode) {
     const stored = readLocal<WeeklyEntry[]>(KEYS.entries, []);
-    if (stored.length > 0) return stored;
+
+    if (stored.length > 0) {
+      return stored;
+    }
+
     writeLocal(KEYS.entries, INITIAL_ENTRIES);
     return INITIAL_ENTRIES;
   }
 
-  const { data, error } = await getSupabaseClient()
-    .from("weekly_entries")
-    .select(
-      "id, officer_id, year, month, week, prisons, pursuits, note, created_at"
-    )
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    officerId: row.officer_id,
-    year: row.year,
-    month: row.month,
-    week: row.week,
-    prisons: row.prisons,
-    pursuits: row.pursuits,
-    note: row.note ?? "",
-    createdAt: row.created_at
-  }));
+  return loadActivityEntries();
 }
 
 export async function loadDiscordRecords(): Promise<DiscordRecord[]> {
@@ -970,14 +957,18 @@ export async function loadDiscordRecords(): Promise<DiscordRecord[]> {
       reviewedBy: record.reviewedBy ?? "demo-admin",
       reviewedAt: record.reviewedAt ?? record.createdAt ?? null,
       rejectionReason: record.rejectionReason ?? "",
-      approvalApplied: record.approvalApplied ?? true
+      approvalApplied: record.approvalApplied ?? true,
+      qru:
+        record.activityType === "Acompanhamento"
+          ? record.qru ?? null
+          : null
     }));
   }
 
   const { data, error } = await getSupabaseClient()
     .from("discord_records")
     .select(
-      "id, officer_id, year, month, week, activity_type, quantity, discord_url, note, status, submitted_by, reviewed_by, reviewed_at, rejection_reason, approval_applied, created_at"
+      "id, officer_id, year, month, week, activity_type, quantity, qru, discord_url, note, status, submitted_by, reviewed_by, reviewed_at, rejection_reason, approval_applied, created_at"
     )
     .order("created_at", { ascending: false });
 
@@ -996,6 +987,10 @@ export async function loadDiscordRecords(): Promise<DiscordRecord[]> {
     week: row.week,
     activityType: row.activity_type as DiscordActivityType,
     quantity: row.quantity,
+    qru:
+      row.activity_type === "Acompanhamento" && row.qru
+        ? (row.qru as DiscordQru)
+        : null,
     discordUrl: row.discord_url,
     note: row.note ?? "",
     status: row.status as DiscordRecordStatus,
@@ -1255,6 +1250,10 @@ function mapDiscordRecord(row: Record<string, unknown>): DiscordRecord {
     week: Number(row.week),
     activityType: String(row.activity_type) as DiscordActivityType,
     quantity: Number(row.quantity),
+    qru:
+      String(row.activity_type) === "Acompanhamento" && row.qru
+        ? (String(row.qru) as DiscordQru)
+        : null,
     discordUrl: String(row.discord_url),
     note: String(row.note ?? ""),
     status: String(row.status ?? "Pendente") as DiscordRecordStatus,
@@ -1306,9 +1305,17 @@ export async function saveDiscordRecord(
   input: DiscordRecordInput
 ): Promise<DiscordRecordSaveResult> {
   const normalizedUrl = normalizeDiscordMessageUrl(input.discordUrl);
+  const normalizedQru =
+    input.activityType === "Acompanhamento"
+      ? input.qru ?? null
+      : null;
 
   if (!Number.isInteger(input.quantity) || input.quantity < 1) {
     throw new Error("A quantidade precisa ser pelo menos 1.");
+  }
+
+  if (input.activityType === "Acompanhamento" && !normalizedQru) {
+    throw new Error("Selecione a QRU do acompanhamento.");
   }
 
   if (isDemoMode) {
@@ -1327,6 +1334,7 @@ export async function saveDiscordRecord(
       week: input.week,
       activityType: input.activityType,
       quantity: input.quantity,
+      qru: normalizedQru,
       discordUrl: normalizedUrl,
       note: input.note,
       status: "Pendente",
@@ -1359,6 +1367,7 @@ export async function saveDiscordRecord(
       p_week: input.week,
       p_activity_type: input.activityType,
       p_quantity: input.quantity,
+      p_qru: normalizedQru,
       p_discord_url: normalizedUrl,
       p_note: input.note
     }
@@ -1397,6 +1406,10 @@ export async function saveDiscordRecordsBatch(
 
   const normalizedInputs = inputs.map((input) => ({
     ...input,
+    qru:
+      input.activityType === "Acompanhamento"
+        ? input.qru ?? null
+        : null,
     discordUrl: normalizeDiscordMessageUrl(input.discordUrl),
     note: input.note.trim()
   }));
@@ -1408,6 +1421,10 @@ export async function saveDiscordRecordsBatch(
 
     if (!Number.isInteger(input.quantity) || input.quantity < 1) {
       throw new Error("Todas as quantidades precisam ser pelo menos 1.");
+    }
+
+    if (input.activityType === "Acompanhamento" && !input.qru) {
+      throw new Error("Todo acompanhamento do lote precisa de uma QRU.");
     }
   });
 
@@ -1434,6 +1451,7 @@ export async function saveDiscordRecordsBatch(
         week: input.week,
         activityType: input.activityType,
         quantity: input.quantity,
+        qru: input.qru,
         discordUrl: input.discordUrl,
         note: input.note,
         status: "Pendente",
@@ -1466,6 +1484,7 @@ export async function saveDiscordRecordsBatch(
     week: input.week,
     activity_type: input.activityType,
     quantity: input.quantity,
+    qru: input.qru,
     discord_url: input.discordUrl,
     note: input.note
   }));

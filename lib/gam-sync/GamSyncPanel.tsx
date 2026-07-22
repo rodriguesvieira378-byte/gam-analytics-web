@@ -37,7 +37,7 @@ type OperationType =
   | "Acompanhamento";
 
 const QRU_OPTIONS = [
-  "ATM",
+  "Caixa Eletrônico",
   "Banco Central",
   "Joalheria",
   "Registradora",

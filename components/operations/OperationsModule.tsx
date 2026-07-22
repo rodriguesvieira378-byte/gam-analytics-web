@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { MONTHS, WEEKS } from "@/lib/constants";
 import type {
   DiscordActivityType,
+  DiscordQru,
   DiscordRecord,
-  Officer
+  Officer,
+  WeeklyEntry
 } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -16,14 +18,15 @@ import { Select } from "@/components/ui/Select";
 import styles from "./OperationsModule.module.css";
 
 const QRU_CATEGORIES = [
-  "ATM",
+  "Caixa Eletrônico",
   "Banco Central",
   "Joalheria",
   "Registradora",
   "Caixa de Luz",
   "Corrida Ilegal",
-  "Los Santos"
-] as const;
+  "Los Santos",
+  "Outra"
+] as const satisfies readonly DiscordQru[];
 
 type QruCategory = (typeof QRU_CATEGORIES)[number];
 type TypeFilter = "todos" | DiscordActivityType;
@@ -31,6 +34,7 @@ type StatusFilter = "todos" | DiscordRecord["status"];
 type QruFilter = "todas" | QruCategory | "Não identificado";
 
 export interface OperationsModuleProps {
+  entries: WeeklyEntry[];
   records: DiscordRecord[];
   officers: Officer[];
   month: number;
@@ -46,32 +50,14 @@ function normalizeText(value: string) {
     .toLowerCase();
 }
 
-function detectQru(record: DiscordRecord): QruCategory | "Não identificado" {
+function getRecordQru(
+  record: DiscordRecord
+): QruCategory | "Não identificado" {
   if (record.activityType !== "Acompanhamento") {
     return "Não identificado";
   }
 
-  const source = normalizeText(
-    `${record.note ?? ""} ${record.discordUrl ?? ""}`
-  );
-
-  const patterns: Array<[QruCategory, string[]]> = [
-    ["ATM", ["atm", "caixa eletronico"]],
-    ["Banco Central", ["banco central", "central bank"]],
-    ["Joalheria", ["joalheria", "joalheiro"]],
-    ["Registradora", ["registradora", "registradora de dinheiro"]],
-    ["Caixa de Luz", ["caixa de luz", "caixinha de luz"]],
-    ["Corrida Ilegal", ["corrida ilegal", "racha"]],
-    ["Los Santos", ["los santos"]]
-  ];
-
-  for (const [category, aliases] of patterns) {
-    if (aliases.some((alias) => source.includes(alias))) {
-      return category;
-    }
-  }
-
-  return "Não identificado";
+  return record.qru ?? "Não identificado";
 }
 
 function formatDate(value?: string | null) {
@@ -96,6 +82,7 @@ function statusTone(status: DiscordRecord["status"]) {
 }
 
 export function OperationsModule({
+  entries,
   records,
   officers,
   month,
@@ -113,6 +100,30 @@ export function OperationsModule({
   const [officerFilter, setOfficerFilter] =
     useState("todos");
 
+  /*
+   * Fonte operacional oficial:
+   * activities -> WeeklyEntry[]
+   *
+   * Prisões, acompanhamentos e totais da semana devem sempre
+   * ser calculados a partir desta coleção.
+   */
+  const periodEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          entry.month === month &&
+          entry.week === week
+      ),
+    [entries, month, week]
+  );
+
+  /*
+   * Fonte de comprovação e auditoria:
+   * discord_records -> DiscordRecord[]
+   *
+   * Mantida apenas para QRU, status, link da mensagem e
+   * histórico detalhado das comprovações.
+   */
   const periodRecords = useMemo(
     () =>
       records.filter(
@@ -127,7 +138,7 @@ export function OperationsModule({
     () =>
       periodRecords.map((record) => ({
         record,
-        qru: detectQru(record),
+        qru: getRecordQru(record),
         officer:
           officers.find(
             (officer) => officer.id === record.officerId
@@ -146,7 +157,7 @@ export function OperationsModule({
           normalizeText(
             `${officer?.name ?? ""} ${
               officer?.registration ?? ""
-            } ${record.note ?? ""} ${record.discordUrl ?? ""}`
+            } ${record.qru ?? ""} ${record.note ?? ""} ${record.discordUrl ?? ""}`
           ).includes(term);
 
         const matchesType =
@@ -187,15 +198,23 @@ export function OperationsModule({
     typeFilter
   ]);
 
-  const prisonTotal = periodRecords
-    .filter((record) => record.activityType === "Prisão")
-    .reduce((sum, record) => sum + record.quantity, 0);
+  const prisonTotal = useMemo(
+    () =>
+      periodEntries.reduce(
+        (sum, entry) => sum + entry.prisons,
+        0
+      ),
+    [periodEntries]
+  );
 
-  const pursuitTotal = periodRecords
-    .filter(
-      (record) => record.activityType === "Acompanhamento"
-    )
-    .reduce((sum, record) => sum + record.quantity, 0);
+  const pursuitTotal = useMemo(
+    () =>
+      periodEntries.reduce(
+        (sum, entry) => sum + entry.pursuits,
+        0
+      ),
+    [periodEntries]
+  );
 
   const totalWeek = prisonTotal + pursuitTotal;
 
@@ -222,13 +241,20 @@ export function OperationsModule({
     ...qruStats.map((item) => item.total)
   );
 
-  const unidentifiedCount = enrichedRecords
-    .filter(
-      ({ record, qru }) =>
-        record.activityType === "Acompanhamento" &&
-        qru === "Não identificado"
-    )
-    .reduce((sum, { record }) => sum + record.quantity, 0);
+  const unidentifiedCount = useMemo(
+    () =>
+      enrichedRecords
+        .filter(
+          ({ record, qru }) =>
+            record.activityType === "Acompanhamento" &&
+            qru === "Não identificado"
+        )
+        .reduce(
+          (sum, { record }) => sum + record.quantity,
+          0
+        ),
+    [enrichedRecords]
+  );
 
   return (
     <section className={styles.page}>
@@ -236,7 +262,7 @@ export function OperationsModule({
         <SectionTitle
           eyebrow="Controle operacional"
           title="Operações"
-          description="Prisões, acompanhamentos, QRUs e histórico sincronizado pelo Discord."
+          description="Dados operacionais consolidados pelas atividades e comprovações sincronizadas pelo Discord."
         />
 
         <div className={styles.periodFilters}>
@@ -270,13 +296,13 @@ export function OperationsModule({
         <Card tone="blue" className={styles.summaryCard}>
           <span>Prisões</span>
           <strong>{prisonTotal}</strong>
-          <small>Total registrado na semana</small>
+          <small>Total consolidado em atividades</small>
         </Card>
 
         <Card tone="green" className={styles.summaryCard}>
           <span>Acompanhamentos</span>
           <strong>{pursuitTotal}</strong>
-          <small>Total registrado na semana</small>
+          <small>Total consolidado em atividades</small>
         </Card>
 
         <Card tone="blue" className={styles.summaryCard}>
@@ -293,8 +319,8 @@ export function OperationsModule({
           <strong>{unidentifiedCount}</strong>
           <small>
             {unidentifiedCount > 0
-              ? "Revisar observação do registro"
-              : "Todos os acompanhamentos classificados"}
+              ? "Revisar a QRU da comprovação"
+              : "Todas as comprovações classificadas"}
           </small>
         </Card>
       </section>
@@ -303,7 +329,7 @@ export function OperationsModule({
         <Card className={styles.qruPanel}>
           <div className={styles.panelHeader}>
             <div>
-              <span>Distribuição operacional</span>
+              <span>Distribuição das comprovações</span>
               <h3>Acompanhamentos por QRU</h3>
             </div>
 
@@ -390,7 +416,7 @@ export function OperationsModule({
       <Card className={styles.historyCard}>
         <div className={styles.historyHeader}>
           <div>
-            <span>Histórico operacional</span>
+            <span>Histórico de comprovações</span>
             <h3>Registros da semana</h3>
             <small>
               {filteredRecords.length} de {periodRecords.length} registro(s)
@@ -483,7 +509,7 @@ export function OperationsModule({
 
         {filteredRecords.length === 0 ? (
           <EmptyState
-            title="Nenhum registro encontrado"
+            title="Nenhuma comprovação encontrada"
             description="Ajuste os filtros ou aguarde novas sincronizações do Discord."
           />
         ) : (

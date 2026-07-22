@@ -4,6 +4,17 @@ export type OfficerGarrison = "Militar" | "Civil";
 
 export type DiscordActivityType = "Prisão" | "Acompanhamento";
 export type DiscordRecordStatus = "Pendente" | "Aprovado" | "Rejeitado";
+
+export type DiscordQru =
+  | "ATM"
+  | "Banco Central"
+  | "Joalheria"
+  | "Registradora"
+  | "Caixa de Luz"
+  | "Corrida Ilegal"
+  | "Los Santos"
+  | "Outra";
+
 export type AppRole = "Administrador" | "Supervisor" | "Consulta";
 export type ApprovalStatus = "Pendente" | "Aprovado" | "Rejeitado";
 
@@ -170,6 +181,15 @@ export interface DiscordRecord {
   quantity: number;
 
   /**
+   * QRU vinculada ao acompanhamento.
+   *
+   * Deve ser preenchida somente quando activityType for "Acompanhamento".
+   * Registros antigos podem permanecer sem QRU e serão exibidos como
+   * "Não identificada" apenas na interface.
+   */
+  qru?: DiscordQru | null;
+
+  /**
    * Link da mensagem usada como comprovação.
    * Este campo é diferente do ID pessoal do integrante.
    */
@@ -192,6 +212,13 @@ export interface DiscordRecordInput {
   week: number;
   activityType: DiscordActivityType;
   quantity: number;
+
+  /**
+   * Obrigatória para acompanhamento e ausente para prisão.
+   * A validação será aplicada no formulário e no repositório.
+   */
+  qru?: DiscordQru | null;
+
   discordUrl: string;
   note: string;
 }

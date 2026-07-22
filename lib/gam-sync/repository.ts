@@ -1,12 +1,17 @@
 import {
   loadCurrentUserAccess,
+  saveDiscordRecord,
   saveEntry
 } from "@/lib/repository";
 import {
   getSupabaseClient,
   isDemoMode
 } from "@/lib/supabase";
-import type { WeeklyEntry } from "@/lib/types";
+import type {
+  DiscordActivityType,
+  DiscordQru,
+  WeeklyEntry
+} from "@/lib/types";
 import type {
   GamSyncDiscordMessage,
   GamSyncMappedEntry,
@@ -114,6 +119,89 @@ function normalizeChannelId(value: string) {
 
 function normalizeDiscordId(value: string) {
   return value.trim();
+}
+
+const VALID_QRU_OPTIONS: DiscordQru[] = [
+  "Caixa Eletrônico",
+  "Banco Central",
+  "Joalheria",
+  "Registradora",
+  "Caixa de Luz",
+  "Corrida Ilegal",
+  "Los Santos",
+  "Outra"
+];
+
+function normalizeQru(
+  value: string
+): DiscordQru | null {
+  const normalized = value.trim();
+
+  return (
+    VALID_QRU_OPTIONS.find(
+      (option) => option === normalized
+    ) ?? null
+  );
+}
+
+function buildDiscordMessageUrl(
+  message: GamSyncDiscordMessage
+) {
+  const guildId = message.guildId?.trim();
+  const channelId = message.channelId.trim();
+  const messageId = message.messageId.trim();
+
+  if (!guildId) {
+    throw new Error(
+      "Informe o ID do servidor para registrar a comprovação no histórico operacional."
+    );
+  }
+
+  if (!channelId || !messageId) {
+    throw new Error(
+      "A mensagem precisa possuir ID do canal e ID da mensagem válidos."
+    );
+  }
+
+  return `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
+}
+
+function resolveDiscordActivity(
+  mappedEntry: GamSyncMappedEntry
+): {
+  activityType: DiscordActivityType;
+  quantity: number;
+  qru: DiscordQru | null;
+} {
+  if (mappedEntry.pursuitDelta > 0) {
+    const normalizedQru = normalizeQru(
+      mappedEntry.qru
+    );
+
+    if (!normalizedQru) {
+      throw new Error(
+        "Selecione uma QRU válida para o acompanhamento."
+      );
+    }
+
+    return {
+      activityType: "Acompanhamento",
+      quantity: mappedEntry.pursuitDelta,
+      qru: normalizedQru
+    };
+  }
+
+  if (mappedEntry.prisonDelta > 0) {
+    return {
+      activityType: "Prisão",
+      quantity: mappedEntry.prisonDelta,
+      qru: null
+    };
+  }
+
+  throw new Error(
+    "A operação não possui aumento válido para prisão ou acompanhamento."
+  );
 }
 
 function normalizeAttachmentUrls(urls: string[]) {
@@ -760,6 +848,26 @@ export async function saveGamSyncRecord(
     );
 
   try {
+    const discordActivity =
+      resolveDiscordActivity(
+        input.mappedEntry
+      );
+
+    await saveDiscordRecord({
+      officerId: input.mappedEntry.officerId,
+      year: input.weeklyEntry.year,
+      month: input.weeklyEntry.month,
+      week: input.weeklyEntry.week,
+      activityType:
+        discordActivity.activityType,
+      quantity: discordActivity.quantity,
+      qru: discordActivity.qru,
+      discordUrl: buildDiscordMessageUrl(
+        input.message
+      ),
+      note: input.mappedEntry.rawContent
+    });
+
     const savedWeeklyEntry = await saveEntry(
       input.weeklyEntry
     );
