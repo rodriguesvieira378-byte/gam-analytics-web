@@ -41,6 +41,8 @@ export interface OperationsModuleProps {
   week: number;
   onMonthChange: (month: number) => void;
   onWeekChange: (week: number) => void;
+  onApproveRecord?: (recordId: string) => Promise<void>;
+  onRejectRecord?: (recordId: string, reason: string) => Promise<void>;
 }
 
 function normalizeText(value: string) {
@@ -88,7 +90,9 @@ export function OperationsModule({
   month,
   week,
   onMonthChange,
-  onWeekChange
+  onWeekChange,
+  onApproveRecord,
+  onRejectRecord
 }: OperationsModuleProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] =
@@ -99,6 +103,12 @@ export function OperationsModule({
     useState<QruFilter>("todas");
   const [officerFilter, setOfficerFilter] =
     useState("todos");
+  const [processingRecordId, setProcessingRecordId] =
+    useState<string | null>(null);
+  const [rejectingRecordId, setRejectingRecordId] =
+    useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const periodEntries = useMemo(
     () =>
@@ -241,6 +251,65 @@ export function OperationsModule({
         ),
     [enrichedRecords]
   );
+
+  async function handleApprove(recordId: string) {
+    if (!onApproveRecord || processingRecordId) return;
+
+    setActionError("");
+    setProcessingRecordId(recordId);
+
+    try {
+      await onApproveRecord(recordId);
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível aprovar a comprovação."
+      );
+    } finally {
+      setProcessingRecordId(null);
+    }
+  }
+
+  function openRejectModal(recordId: string) {
+    setActionError("");
+    setRejectionReason("");
+    setRejectingRecordId(recordId);
+  }
+
+  function closeRejectModal() {
+    if (processingRecordId) return;
+    setRejectingRecordId(null);
+    setRejectionReason("");
+    setActionError("");
+  }
+
+  async function confirmReject() {
+    if (!rejectingRecordId || !onRejectRecord || processingRecordId) return;
+
+    const reason = rejectionReason.trim();
+    if (!reason) {
+      setActionError("Informe o motivo da rejeição.");
+      return;
+    }
+
+    setActionError("");
+    setProcessingRecordId(rejectingRecordId);
+
+    try {
+      await onRejectRecord(rejectingRecordId, reason);
+      setRejectingRecordId(null);
+      setRejectionReason("");
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível rejeitar a comprovação."
+      );
+    } finally {
+      setProcessingRecordId(null);
+    }
+  }
 
   return (
     <section className={styles.page}>
@@ -510,6 +579,7 @@ export function OperationsModule({
                   <th>Qtd.</th>
                   <th>Status</th>
                   <th>Discord</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
 
@@ -570,6 +640,62 @@ export function OperationsModule({
                           Abrir
                         </a>
                       </td>
+
+                      <td>
+                        {record.status === "Pendente" ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleApprove(record.id)
+                              }
+                              disabled={
+                                !onApproveRecord ||
+                                processingRecordId !== null
+                              }
+                              style={{
+                                border: "1px solid rgba(34, 197, 94, 0.45)",
+                                borderRadius: 8,
+                                padding: "7px 10px",
+                                background: "rgba(34, 197, 94, 0.12)",
+                                color: "inherit",
+                                cursor: "pointer"
+                              }}
+                            >
+                              {processingRecordId === record.id
+                                ? "Processando..."
+                                : "Aprovar"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openRejectModal(record.id)}
+                              disabled={
+                                !onRejectRecord ||
+                                processingRecordId !== null
+                              }
+                              style={{
+                                border: "1px solid rgba(239, 68, 68, 0.45)",
+                                borderRadius: 8,
+                                padding: "7px 10px",
+                                background: "rgba(239, 68, 68, 0.12)",
+                                color: "inherit",
+                                cursor: "pointer"
+                              }}
+                            >
+                              Rejeitar
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ opacity: 0.7 }}>Concluído</span>
+                        )}
+                      </td>
                     </tr>
                   )
                 )}
@@ -578,6 +704,117 @@ export function OperationsModule({
           </div>
         )}
       </Card>
+
+      {rejectingRecordId && (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeRejectModal();
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            background: "rgba(0, 0, 0, 0.72)"
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-record-title"
+            style={{
+              width: "min(520px, 100%)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              borderRadius: 16,
+              padding: 22,
+              background: "#081522",
+              boxShadow: "0 24px 80px rgba(0, 0, 0, 0.48)"
+            }}
+          >
+            <h3 id="reject-record-title" style={{ marginTop: 0 }}>
+              Rejeitar comprovação
+            </h3>
+
+            <label style={{ display: "grid", gap: 8 }}>
+              <span>Motivo da rejeição</span>
+              <textarea
+                value={rejectionReason}
+                onChange={(event) => {
+                  setRejectionReason(event.target.value);
+                  if (actionError) setActionError("");
+                }}
+                rows={5}
+                autoFocus
+                placeholder="Informe por que esta comprovação foi rejeitada."
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  borderRadius: 10,
+                  padding: 12,
+                  background: "rgba(255, 255, 255, 0.04)",
+                  color: "inherit",
+                  font: "inherit"
+                }}
+              />
+            </label>
+
+            {actionError && (
+              <p style={{ marginBottom: 0, color: "#f87171" }}>
+                {actionError}
+              </p>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 20
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeRejectModal}
+                disabled={processingRecordId !== null}
+                style={{
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  borderRadius: 8,
+                  padding: "9px 14px",
+                  background: "transparent",
+                  color: "inherit",
+                  cursor: "pointer"
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void confirmReject()}
+                disabled={processingRecordId !== null}
+                style={{
+                  border: "1px solid rgba(239, 68, 68, 0.5)",
+                  borderRadius: 8,
+                  padding: "9px 14px",
+                  background: "rgba(239, 68, 68, 0.16)",
+                  color: "inherit",
+                  cursor: "pointer"
+                }}
+              >
+                {processingRecordId === rejectingRecordId
+                  ? "Rejeitando..."
+                  : "Rejeitar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

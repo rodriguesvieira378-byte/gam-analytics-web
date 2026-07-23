@@ -2426,17 +2426,19 @@ function GamAppContent() {
 
   async function handleReviewDiscordRecord(
     id: string,
-    decision: "Aprovar" | "Rejeitar"
+    decision: "Aprovar" | "Rejeitar",
+    rejectionReason = ""
   ) {
     if (!canReview) {
       notify("Seu nível de acesso não permite analisar registros.", "error");
-      return;
+      throw new Error("Seu nível de acesso não permite analisar registros.");
     }
 
-    let reason = "";
-    if (decision === "Rejeitar") {
-      reason = window.prompt("Informe o motivo da rejeição:")?.trim() ?? "";
-      if (!reason) return;
+    const reason = rejectionReason.trim();
+
+    if (decision === "Rejeitar" && !reason) {
+      notify("Informe o motivo da rejeição.", "error");
+      throw new Error("Informe o motivo da rejeição.");
     }
 
     try {
@@ -3327,6 +3329,16 @@ function GamAppContent() {
                     week={week}
                     onMonthChange={setMonth}
                     onWeekChange={setWeek}
+                    onApproveRecord={(recordId) =>
+                      handleReviewDiscordRecord(recordId, "Aprovar")
+                    }
+                    onRejectRecord={(recordId, reason) =>
+                      handleReviewDiscordRecord(
+                        recordId,
+                        "Rejeitar",
+                        reason
+                      )
+                    }
                   />
 
                   <GamSyncPanel
