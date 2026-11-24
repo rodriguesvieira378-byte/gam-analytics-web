@@ -22,3 +22,7 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .vscode/
+# App de desktop (Tauri)
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/

@@ -1,4 +1,6 @@
-# GAM Analytics Web — V0.7.1
+# GAM Analytics Web — V0.8.0
+
+> 🖥️ App de desktop (Windows) e instalação pelo navegador: veja [docs/DESKTOP.md](docs/DESKTOP.md).
 
 Versão web operacional do GAM Analytics, com notificações, registros do Discord, controle de acessos e identidade visual do efetivo.
 

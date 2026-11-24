@@ -1,6 +1,10 @@
 "use client";
 
+import { useMemo, type CSSProperties } from "react";
+
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { MONTHS } from "@/lib/constants";
+import { isDemoMode } from "@/lib/supabase";
 import styles from "./OperationalCenter.module.css";
 
 import type {
@@ -87,6 +91,13 @@ function getRankingClass(index: number) {
   return `${baseClass} ${styles["ranking-standard"]}`;
 }
 
+const WEEKS = [1, 2, 3, 4, 5] as const;
+
+/** Índice usado pelo CSS para escalonar as animações de entrada. */
+function delay(index: number): CSSProperties {
+  return { "--i": index } as CSSProperties;
+}
+
 function getRankingLabel(index: number) {
   if (index === 0) return "OURO";
   if (index === 1) return "PRATA";
@@ -163,12 +174,107 @@ export function OperationalCenter({
       officer.garrison === "Civil"
   ).length;
 
+  const weeklyEvolution = useMemo(
+    () =>
+      WEEKS.map((value) => {
+        const weekEntries = entries.filter(
+          (entry) => entry.month === month && entry.week === value
+        );
+
+        const prisons = weekEntries.reduce(
+          (sum, entry) => sum + entry.prisons,
+          0
+        );
+
+        const pursuits = weekEntries.reduce(
+          (sum, entry) => sum + entry.pursuits,
+          0
+        );
+
+        return {
+          week: value,
+          prisons,
+          pursuits,
+          total: prisons + pursuits
+        };
+      }),
+    [entries, month]
+  );
+
+  const evolutionPeak = Math.max(
+    1,
+    ...weeklyEvolution.map((item) => item.total)
+  );
+
+  const monthTotal = weeklyEvolution.reduce(
+    (sum, item) => sum + item.total,
+    0
+  );
+
+  const previousWeek = weeklyEvolution.find(
+    (item) => item.week === week - 1
+  );
+
+  const currentWeek = weeklyEvolution.find(
+    (item) => item.week === week
+  );
+
+  const weekTrend =
+    previousWeek && currentWeek && previousWeek.total > 0
+      ? Math.round(
+          ((currentWeek.total - previousWeek.total) / previousWeek.total) *
+            100
+        )
+      : null;
+
+  const rankingPeak = Math.max(
+    1,
+    ...rankedMetrics.map((metric) => metric.total)
+  );
+
   const systemStatus =
     rejectedCount > 0
       ? "Atenção"
       : pendingCount > 0
         ? "Processando"
         : "Online";
+
+  const healthItems: Array<{
+    label: string;
+    status: string;
+    tone: "" | "warning" | "danger" | "muted";
+  }> = [
+    {
+      label: "Supabase",
+      status: isDemoMode
+        ? "Modo demonstração (dados no navegador)"
+        : "Conectado",
+      tone: isDemoMode ? "warning" : ""
+    },
+    {
+      label: "GAM Sync",
+      status:
+        rejectedCount > 0
+          ? `${rejectedCount} registro(s) rejeitado(s)`
+          : pendingCount > 0
+            ? `${pendingCount} na fila`
+            : "Fila limpa",
+      tone:
+        rejectedCount > 0 ? "danger" : pendingCount > 0 ? "warning" : ""
+    },
+    {
+      label: "Discord Bot",
+      status: latestSync
+        ? `Último registro às ${formatTime(latestSync)}`
+        : "Nenhum registro neste período",
+      tone: latestSync ? "" : "muted"
+    },
+    {
+      label: "Efetivo",
+      status: `${activeCount} ativo(s) • ${inactiveCount} inativo(s)`,
+      tone: ""
+    }
+  ];
 
   return (
     <section className={`page operational-center ${styles.operationalPage}`}>
@@ -203,7 +309,7 @@ export function OperationalCenter({
             }
             aria-label="Selecionar semana"
           >
-            {[1, 2, 3, 4, 5].map((value) => (
+            {WEEKS.map((value) => (
               <option key={value} value={value}>
                 Semana {value}
               </option>
@@ -213,17 +319,27 @@ export function OperationalCenter({
       </header>
 
       <div className={`grid kpis operational-kpis ${styles.kpiGrid}`}>
-        <article className={`kpi-card ${styles.kpiCard} ${styles.kpiBlue}`}>
+        <article
+          className={`kpi-card ${styles.kpiCard} ${styles.kpiBlue}`}
+          style={delay(0)}
+        >
           <span>Prisões no período</span>
-          <strong>{totalPrisons}</strong>
+          <strong>
+            <AnimatedNumber value={totalPrisons} />
+          </strong>
           <small className={styles.kpiFooter}>
             {MONTHS[month - 1]} • Semana {week}
           </small>
         </article>
 
-        <article className={`kpi-card ${styles.kpiCard} ${styles.kpiGreen}`}>
+        <article
+          className={`kpi-card ${styles.kpiCard} ${styles.kpiGreen}`}
+          style={delay(1)}
+        >
           <span>Acompanhamentos no período</span>
-          <strong>{totalPursuits}</strong>
+          <strong>
+            <AnimatedNumber value={totalPursuits} />
+          </strong>
           <small className={styles.kpiFooter}>
             {MONTHS[month - 1]} • Semana {week}
           </small>
@@ -233,9 +349,12 @@ export function OperationalCenter({
           className={`kpi-card ${styles.kpiCard} ${styles.kpiAmber} ${
             pendingCount > 0 ? "warning" : "good"
           }`}
+          style={delay(2)}
         >
           <span>Fila do GAM Sync</span>
-          <strong>{pendingCount}</strong>
+          <strong>
+            <AnimatedNumber value={pendingCount} />
+          </strong>
           <small className={styles.kpiFooter}>
             {approvedCount} aprovado(s) • {rejectedCount} rejeitado(s)
           </small>
@@ -245,17 +364,132 @@ export function OperationalCenter({
           className={`kpi-card ${styles.kpiCard} ${styles.kpiOnline} ${
             rejectedCount > 0 ? "bad" : "good"
           }`}
+          style={delay(3)}
         >
           <span>Sistema online</span>
-          <strong>{systemStatus}</strong>
+          <strong
+            className={`${styles.statusValue} ${
+              systemStatus === "Online"
+                ? styles.pulseGood
+                : systemStatus === "Atenção"
+                  ? styles.pulseBad
+                  : styles.pulseWarn
+            }`}
+          >
+            <span
+              className={`${styles.livePulse} ${
+                systemStatus === "Online"
+                  ? styles.pulseGood
+                  : systemStatus === "Atenção"
+                    ? styles.pulseBad
+                    : styles.pulseWarn
+              }`}
+              aria-hidden="true"
+            />
+            {systemStatus}
+          </strong>
           <small className={styles.kpiFooter}>
             Última sincronização: {formatTime(latestSync)}
           </small>
         </article>
       </div>
 
+      <article
+        className={`card ${styles.dashboardPanel} ${styles.evolutionPanel}`}
+        style={delay(4)}
+      >
+        <header className={styles.evolutionHeader}>
+          <div>
+            <span>EVOLUÇÃO DO MÊS</span>
+            <h3>Produtividade semana a semana</h3>
+          </div>
+
+          <div className={styles.evolutionSummary}>
+            <div>
+              <small>Total em {MONTHS[month - 1]}</small>
+              <b>
+                <AnimatedNumber value={monthTotal} />
+              </b>
+            </div>
+
+            {weekTrend !== null && (
+              <div>
+                <small>Semana {week} x anterior</small>
+                <b
+                  className={
+                    weekTrend >= 0 ? styles.trendUp : styles.trendDown
+                  }
+                >
+                  {weekTrend >= 0 ? "▲" : "▼"} {Math.abs(weekTrend)}%
+                </b>
+              </div>
+            )}
+          </div>
+        </header>
+
+        <div
+          className={styles.evolutionChart}
+          role="group"
+          aria-label="Atividades por semana"
+        >
+          {weeklyEvolution.map((item) => {
+            const height = Math.round((item.total / evolutionPeak) * 100);
+            const prisonShare =
+              item.total > 0
+                ? Math.round((item.prisons / item.total) * 100)
+                : 0;
+
+            return (
+              <button
+                type="button"
+                key={item.week}
+                className={`${styles.evolutionBar} ${
+                  item.week === week ? styles.evolutionActive : ""
+                }`}
+                onClick={() => onWeekChange(item.week)}
+                aria-pressed={item.week === week}
+                title={`Semana ${item.week}: ${item.prisons} prisões • ${item.pursuits} acompanhamentos`}
+              >
+                <span className={styles.evolutionValue}>{item.total}</span>
+
+                <span className={styles.evolutionTrack}>
+                  <span
+                    className={styles.evolutionFill}
+                    style={
+                      {
+                        "--h": `${height}%`,
+                        "--p": `${prisonShare}%`
+                      } as CSSProperties
+                    }
+                  />
+                </span>
+
+                <span className={styles.evolutionLabel}>
+                  Semana {item.week}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <footer className={styles.evolutionLegend}>
+          <span>
+            <i className={styles.legendPrisons} /> Prisões
+          </span>
+          <span>
+            <i className={styles.legendPursuits} /> Acompanhamentos
+          </span>
+          <span className={styles.legendHint}>
+            Clique numa barra para ver a semana
+          </span>
+        </footer>
+      </article>
+
       <div className={`grid two margin-top operational-primary-grid ${styles.primaryGrid}`}>
-        <article className={`card operational-timeline-card ${styles.dashboardPanel}`}>
+        <article
+          className={`card operational-timeline-card ${styles.dashboardPanel}`}
+          style={delay(5)}
+        >
         <header className={`card-head ${styles.panelHeader}`}>
           <div>
             <span>TIMELINE</span>
@@ -277,7 +511,11 @@ export function OperationalCenter({
               );
 
               return (
-                <div className={`activity ${styles.activityRow}`} key={entry.id}>
+                <div
+                  className={`activity ${styles.activityRow}`}
+                  key={entry.id}
+                  style={delay(recentEntries.indexOf(entry))}
+                >
                   <span className="dot" />
 
                   <div>
@@ -311,7 +549,10 @@ export function OperationalCenter({
         </div>
       </article>
 
-        <article className={`card ${styles["ranking-premium-card"]} operational-ranking-card ${styles.dashboardPanel}`}>
+        <article
+          className={`card ${styles["ranking-premium-card"]} operational-ranking-card ${styles.dashboardPanel}`}
+          style={delay(6)}
+        >
           <header className={`card-head ${styles["ranking-premium-header"]}`}>
             <div>
               <span>RANKING PREMIUM</span>
@@ -336,6 +577,14 @@ export function OperationalCenter({
                   <div
                     className={getRankingClass(index)}
                     key={metric.id}
+                    style={
+                      {
+                        "--i": index,
+                        "--share": `${Math.round(
+                          (metric.total / rankingPeak) * 100
+                        )}%`
+                      } as CSSProperties
+                    }
                   >
                     <div className={styles["ranking-premium-position"]}>
                       <span>{index + 1}</span>
@@ -354,7 +603,9 @@ export function OperationalCenter({
                     </div>
 
                     <div className={styles["ranking-premium-result"]}>
-                      <b>{metric.total}</b>
+                      <b>
+                        <AnimatedNumber value={metric.total} />
+                      </b>
                       <small>{metric.situation}</small>
                     </div>
                   </div>
@@ -365,7 +616,10 @@ export function OperationalCenter({
         </article>
       </div>
 
-      <article className={`card margin-top operational-feed-card ${styles.dashboardPanel} ${styles.feedPanel}`}>
+      <article
+          className={`card margin-top operational-feed-card ${styles.dashboardPanel} ${styles.feedPanel}`}
+          style={delay(7)}
+        >
           <header className={`card-head ${styles.panelHeader}`}>
             <div>
               <span>FEED OPERACIONAL</span>
@@ -387,7 +641,11 @@ export function OperationalCenter({
                 );
 
                 return (
-                  <div className={`activity ${styles.activityRow}`} key={record.id}>
+                  <div
+                    className={`activity ${styles.activityRow}`}
+                    key={record.id}
+                    style={delay(recentOperations.indexOf(record))}
+                  >
                     <span
                       className={`dot ${
                         record.status === "Rejeitado"
@@ -423,7 +681,10 @@ export function OperationalCenter({
         </article>
 
       <div className={`grid two margin-top operational-secondary-grid ${styles.secondaryGrid}`}>
-        <article className={`card operational-health-card ${styles.dashboardPanel}`}>
+        <article
+          className={`card operational-health-card ${styles.dashboardPanel}`}
+          style={delay(8)}
+        >
           <header className={`card-head ${styles.panelHeader}`}>
             <div>
               <span>SAÚDE DO SISTEMA</span>
@@ -432,34 +693,25 @@ export function OperationalCenter({
           </header>
 
           <div className={`activity-list ${styles.activityList}`}>
-            {[
-              ["Supabase", "Online"],
-              ["Banco de dados", "Online"],
-              ["GAM Sync", "Online"],
-              ["Parser", "Online"],
-              ["Discord Bot", "Em desenvolvimento"]
-            ].map(([label, status]) => (
+            {healthItems.map(({ label, status, tone }) => (
               <div className="activity" key={label}>
-                <span
-                  className={`dot ${
-                    status === "Em desenvolvimento"
-                      ? "warning"
-                      : ""
-                  }`}
-                />
+                <span className={`dot ${tone}`} />
 
                 <div>
                   <strong>{label}</strong>
                   <small>{status}</small>
                 </div>
 
-                <b>{status === "Online" ? "●" : "○"}</b>
+                <b>{tone === "" ? "●" : "○"}</b>
               </div>
             ))}
           </div>
         </article>
 
-        <article className={`card operational-officers-card ${styles.dashboardPanel}`}>
+        <article
+          className={`card operational-officers-card ${styles.dashboardPanel}`}
+          style={delay(9)}
+        >
           <header className={`card-head ${styles.panelHeader}`}>
             <div>
               <span>SITUAÇÃO DO EFETIVO</span>
@@ -474,7 +726,9 @@ export function OperationalCenter({
                 <strong>Metas atingidas</strong>
                 <small>Integrantes dentro da meta semanal</small>
               </div>
-              <b>{metGoals}</b>
+              <b>
+                <AnimatedNumber value={metGoals} />
+              </b>
             </div>
 
             <div className="activity">
@@ -483,7 +737,9 @@ export function OperationalCenter({
                 <strong>Aguardando lançamento</strong>
                 <small>Sem registro na semana</small>
               </div>
-              <b>{noEntries}</b>
+              <b>
+                <AnimatedNumber value={noEntries} />
+              </b>
             </div>
 
             <div className="activity">
@@ -492,7 +748,9 @@ export function OperationalCenter({
                 <strong>Guarnição Militar</strong>
                 <small>Integrantes militares ativos</small>
               </div>
-              <b>{militaryCount}</b>
+              <b>
+                <AnimatedNumber value={militaryCount} />
+              </b>
             </div>
 
             <div className="activity">
@@ -501,7 +759,9 @@ export function OperationalCenter({
                 <strong>Guarnição Civil</strong>
                 <small>Integrantes civis ativos</small>
               </div>
-              <b>{civilCount}</b>
+              <b>
+                <AnimatedNumber value={civilCount} />
+              </b>
             </div>
 
             <div className="activity">
@@ -510,7 +770,9 @@ export function OperationalCenter({
                 <strong>Pendências do Sync</strong>
                 <small>Registros rejeitados ou com falha</small>
               </div>
-              <b>{rejectedCount}</b>
+              <b>
+                <AnimatedNumber value={rejectedCount} />
+              </b>
             </div>
 
             <div className="activity">
@@ -519,7 +781,9 @@ export function OperationalCenter({
                 <strong>Fora de serviço</strong>
                 <small>Integrantes inativos</small>
               </div>
-              <b>{inactiveCount}</b>
+              <b>
+                <AnimatedNumber value={inactiveCount} />
+              </b>
             </div>
           </div>
         </article>
