@@ -4,7 +4,7 @@
   "version": "0.8.0",
   "identifier": "br.gam.analytics",
   "build": {
-    "frontendDist": "https://COLOQUE-A-URL-DO-PAINEL.vercel.app"
+    "frontendDist": "https://gam-analytics-web.vercel.app"
   },
   "app": {
     "windows": [

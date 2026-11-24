@@ -4,9 +4,9 @@ name: App de desktop (Windows)
 # Rode manualmente em Actions > "App de desktop (Windows)" > Run workflow,
 # ou publique uma tag (ex.: git tag v0.8.0 && git push --tags).
 #
-# Antes da primeira vez: em Settings > Secrets and variables > Actions >
-# Variables, crie a variável GAM_APP_URL com o endereço do painel
-# publicado na Vercel (ex.: https://gam-analytics.vercel.app).
+# O app abre https://gam-analytics-web.vercel.app (definido em
+# src-tauri/tauri.conf.json). Para usar outro endereço sem mexer no código,
+# crie a variável GAM_APP_URL em Settings > Secrets and variables > Actions > Variables.
 
 on:
   workflow_dispatch:
@@ -34,20 +34,18 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-      - name: Configurar endereço do painel
+      - name: Ajustar versão e endereço do painel
         shell: bash
         env:
           GAM_APP_URL: ${{ vars.GAM_APP_URL }}
         run: |
-          if [ -z "$GAM_APP_URL" ]; then
-            echo "::error::Crie a variável GAM_APP_URL em Settings > Secrets and variables > Actions > Variables."
-            exit 1
-          fi
           node -e '
             const fs = require("fs");
             const file = "src-tauri/tauri.conf.json";
             const conf = JSON.parse(fs.readFileSync(file, "utf8"));
-            conf.build.frontendDist = process.env.GAM_APP_URL;
+            if (process.env.GAM_APP_URL) {
+              conf.build.frontendDist = process.env.GAM_APP_URL;
+            }
             conf.version = require("./package.json").version;
             fs.writeFileSync(file, JSON.stringify(conf, null, 2));
           '

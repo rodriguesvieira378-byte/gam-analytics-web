@@ -16,12 +16,11 @@ O app de desktop é uma janela nativa leve (~5–10 MB) que abre o painel public
 Como ele carrega o site da Vercel, **toda atualização publicada na Vercel aparece
 no app automaticamente**, sem reinstalar.
 
-### Configuração (uma vez só)
+### Endereço do painel
 
-1. No GitHub, abra **Settings > Secrets and variables > Actions > aba Variables**.
-2. Clique em **New repository variable**:
-   - Nome: `GAM_APP_URL`
-   - Valor: o endereço do painel na Vercel (ex.: `https://gam-analytics.vercel.app`)
+O app abre `https://gam-analytics-web.vercel.app` (definido em `src-tauri/tauri.conf.json`).
+Para trocar sem mexer no código, crie a variável `GAM_APP_URL` em
+**Settings > Secrets and variables > Actions > aba Variables**.
 
 ### Gerar o instalador
 
