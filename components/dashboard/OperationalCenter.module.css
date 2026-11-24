@@ -547,3 +547,390 @@
     text-align: left;
   }
 }
+
+/* =========================================================
+   V0.8 — Painel dinâmico
+   Animações de entrada, números animados, gráfico semanal,
+   barras no ranking e status ao vivo.
+   ========================================================= */
+
+@keyframes gamRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gamSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gamGrow {
+  from {
+    height: 0;
+  }
+}
+
+@keyframes gamShare {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes gamPulse {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Entrada escalonada de cards e painéis */
+.kpiCard,
+.dashboardPanel {
+  animation: gamRise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+.activityRow,
+.ranking-premium-item {
+  animation: gamSlideIn 0.4s ease backwards;
+  animation-delay: calc(240ms + var(--i, 0) * 55ms);
+}
+
+/* Interação nos KPIs */
+.kpiCard {
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease !important;
+}
+
+.kpiCard:hover {
+  transform: translateY(-3px);
+  border-color: #2a8cff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(0, 72, 160, 0.28) !important;
+}
+
+.kpiCard > strong > span {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status ao vivo */
+.kpiOnline > strong.statusValue {
+  display: flex !important;
+  align-items: center;
+  gap: 14px;
+  padding-left: 4px;
+}
+
+.kpiOnline > strong.pulseGood {
+  color: #16c978;
+}
+
+.kpiOnline > strong.pulseWarn {
+  color: #ffb415;
+}
+
+.kpiOnline > strong.pulseBad {
+  color: #ff4d5e;
+}
+
+.livePulse {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: gamPulse 1.8s ease-out infinite;
+}
+
+.pulseGood {
+  color: #16c978;
+}
+
+.pulseWarn {
+  color: #ffb415;
+}
+
+.pulseBad {
+  color: #ff4d5e;
+}
+
+/* Linhas com hover */
+.activityRow {
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.activityRow:hover {
+  transform: translateX(3px);
+  background: rgba(22, 132, 255, 0.07);
+}
+
+/* Ranking com barra proporcional ao líder */
+.ranking-premium-item {
+  position: relative;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.ranking-premium-item:hover {
+  transform: translateX(3px);
+  border-color: #2a8cff;
+}
+
+.ranking-premium-item::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--share, 0%);
+  height: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(90deg, #0b6fe0, #29a3ff);
+  animation: gamShare 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(400ms + var(--i, 0) * 55ms);
+}
+
+.ranking-gold::after {
+  background: linear-gradient(90deg, #c99400, #ffd41f);
+}
+
+/* Evolução semanal */
+.evolutionPanel {
+  padding: 18px 20px 16px;
+}
+
+.evolutionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.evolutionHeader > div:first-child > span {
+  display: block;
+  color: #2b93ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.evolutionHeader h3 {
+  margin: 6px 0 0;
+  color: #f5f8fc;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.evolutionSummary {
+  display: flex;
+  gap: 22px;
+}
+
+.evolutionSummary > div {
+  text-align: right;
+}
+
+.evolutionSummary small {
+  display: block;
+  color: #9cb3c8;
+  font-size: 11px;
+}
+
+.evolutionSummary b {
+  display: block;
+  margin-top: 4px;
+  color: #f4f8ff !important;
+  font-size: 24px !important;
+  font-weight: 900;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.evolutionSummary b.trendUp {
+  color: #16c978 !important;
+}
+
+.evolutionSummary b.trendDown {
+  color: #ff4d5e !important;
+}
+
+.evolutionChart {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  height: 210px;
+  margin-top: 18px;
+}
+
+.evolutionBar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 8px 8px;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.evolutionBar:hover {
+  background: rgba(22, 132, 255, 0.06);
+}
+
+.evolutionBar:focus-visible {
+  outline: 2px solid #2a8cff;
+  outline-offset: 2px;
+}
+
+.evolutionActive {
+  border-color: rgba(42, 140, 255, 0.55);
+  background: rgba(22, 132, 255, 0.09);
+}
+
+.evolutionValue {
+  color: #f4f8ff;
+  font-size: 15px;
+  font-weight: 900;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.evolutionTrack {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: 7px;
+  background: rgba(23, 72, 111, 0.22);
+}
+
+.evolutionFill {
+  width: 100%;
+  height: var(--h, 0%);
+  min-height: 3px;
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(
+    0deg,
+    #1684ff 0,
+    #1684ff var(--p, 50%),
+    #12c866 var(--p, 50%),
+    #12c866 100%
+  );
+  transition: height 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: gamGrow 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: 300ms;
+}
+
+.evolutionBar:not(.evolutionActive) .evolutionFill {
+  opacity: 0.62;
+}
+
+.evolutionLabel {
+  color: #9cb3c8;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.evolutionActive .evolutionLabel {
+  color: #f4f8ff;
+}
+
+.evolutionLegend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  color: #c1cede;
+  font-size: 12px;
+}
+
+.evolutionLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.evolutionLegend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.legendPrisons {
+  background: #1684ff;
+}
+
+.legendPursuits {
+  background: #12c866;
+}
+
+.legendHint {
+  margin-left: auto;
+  color: #7f97ad;
+}
+
+@media (max-width: 560px) {
+  .evolutionChart {
+    gap: 6px;
+    height: 180px;
+  }
+
+  .evolutionLabel {
+    font-size: 9px;
+  }
+
+  .legendHint {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpiCard,
+  .dashboardPanel,
+  .activityRow,
+  .ranking-premium-item,
+  .ranking-premium-item::after,
+  .evolutionFill,
+  .livePulse {
+    animation: none !important;
+    transition: none !important;
+  }
+}

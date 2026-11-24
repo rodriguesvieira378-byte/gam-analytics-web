@@ -1,0 +1,66 @@
+name: App de desktop (Windows)
+
+# Gera o instalador .exe do GAM Analytics.
+# Rode manualmente em Actions > "App de desktop (Windows)" > Run workflow,
+# ou publique uma tag (ex.: git tag v0.8.0 && git push --tags).
+#
+# O app abre https://gam-analytics-web.vercel.app (definido em
+# src-tauri/tauri.conf.json). Para usar outro endereço sem mexer no código,
+# crie a variável GAM_APP_URL em Settings > Secrets and variables > Actions > Variables.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Ajustar versão e endereço do painel
+        shell: bash
+        env:
+          GAM_APP_URL: ${{ vars.GAM_APP_URL }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const file = "src-tauri/tauri.conf.json";
+            const conf = JSON.parse(fs.readFileSync(file, "utf8"));
+            if (process.env.GAM_APP_URL) {
+              conf.build.frontendDist = process.env.GAM_APP_URL;
+            }
+            conf.version = require("./package.json").version;
+            fs.writeFileSync(file, JSON.stringify(conf, null, 2));
+          '
+
+      - name: Gerar ícones do app
+        run: npx --yes @tauri-apps/cli@2 icon public/gam-shield-1024.png
+
+      - name: Compilar instalador
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: npx --yes @tauri-apps/cli@2
+          tagName: desktop-v__VERSION__
+          releaseName: "GAM Analytics Desktop v__VERSION__"
+          releaseBody: "Baixe o arquivo GAM.Analytics_..._x64-setup.exe abaixo e execute para instalar."
+          releaseDraft: true
+          prerelease: false
